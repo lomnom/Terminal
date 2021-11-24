@@ -34,6 +34,9 @@ bdefault="\033[49m" #reset text color
 
 bold="\033[1m"
 dim="\033[2m"
+italic="\033[3m"
+underline="\033[4m"
+
 resetweight="\033[22m"
 
 from sys import stdin,stdout
@@ -70,48 +73,38 @@ sizereceivers={}
 import signal
 
 def updateSize(*a):
-	global size,rows,columns,maxx,maxy
-    size=termsize()
-    rows=size.lines
-    columns=size.columns
-    maxx=columns-1
-    maxy=rows-1
-    for receiver in sizereceivers:
-    	sizereceivers[receiver](rows,cols)
+	global size,rows,columns,maxx,maxy,sizereceivers
+	size=termsize()
+	rows=size.lines
+	columns=size.columns
+	maxx=columns-1
+	maxy=rows-1
+	for receiver in sizereceivers:
+		sizereceivers[receiver](rows,cols)
 
-signal.signal(signal.SIGWINCH, winch)
+signal.signal(signal.SIGWINCH, updateSize)
 
 read=stdin.read
 
-rawBackup=None
 def raw():
-	global rawBackup
-	if not rawBackup==None: return
-	rawBackup=termios.tcgetattr(fd)
 	raw=termios.tcgetattr(fd)
 	raw[3]=raw[3] & ~(termios.ECHO | termios.ICANON)
 	termios.tcsetattr(fd,termios.TCSADRAIN,raw)
 
 def unraw():
-	global rawBackup
-	if rawBackup==None: return
-	termios.tcsetattr(fd,termios.TCSADRAIN,rawBackup)
-	rawBackup=None
+	unraw=termios.tcgetattr(fd)
+	unraw[3]=unraw[3] | (termios.ECHO | termios.ICANON)
+	termios.tcsetattr(fd,termios.TCSADRAIN,unraw)
 
-ctrlcBackup=None
 def noctrlc():
-	global ctrlcBackup
-	if not ctrlcBackup==None: return
-	ctrlcBackup=termios.tcgetattr(fd)
 	noctrlc=termios.tcgetattr(fd)
 	noctrlc[3]=noctrlc[3] & ~termios.ISIG
 	termios.tcsetattr(fd,termios.TCSADRAIN,noctrlc)
 
 def ctrlc():
-	global ctrlcBackup
-	if ctrlcBackup==None: return
-	termios.tcsetattr(fd,termios.TCSADRAIN,ctrlcBackup)
-	ctrlcBackup=None
+	ctrlc=termios.tcgetattr(fd)
+	ctrlc[3]=ctrlc[3] | termios.ISIG
+	termios.tcsetattr(fd,termios.TCSADRAIN,ctrlc)
 
 def canvas():
 	fprint(savecursor+hidecursor+canvasscreen)
@@ -235,3 +228,29 @@ class KeyHandler:
 		def stop(self):
 			self.thread=None
 			self.tasks=[]
+
+from time import perf_counter as timecounter
+
+class Stopwatch:
+	def __init__(self):
+		self.reset()
+
+	def start(self):
+		self.started=timecounter()
+
+	def stop(self):
+		if self.started!=-1:
+			self.totalElapsed+=timecounter()-self.started
+			self.started=-1
+		return self.time()
+	end=stop
+
+	def reset(self):
+		self.started=-1
+		self.totalElapsed=0
+
+	def time(self):
+		if self.started!=-1:
+			return self.totalElapsed+(timecounter()-self.started)
+		else:
+			return self.totalElapsed

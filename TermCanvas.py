@@ -19,6 +19,47 @@ bg={
 	"cyan":"46",
 	"default":"49"
 }
+
+def fromRgb(rgb):
+	return (((rgb>>16) & 255),((rgb>>8) & 255),(rgb & 255))
+
+class Colors:
+	blank=4
+	rgb=3
+	xterm=1
+	retro=0
+
+class Retro:
+	red=1
+	green=2
+	yellow=3
+	blue=4
+	magenta=5
+	cyan=6
+
+	@staticmethod
+	def bg(color):
+		return color+4
+
+class Color:
+	def __init__(self,rgb=None,xterm=None,retro=None):
+		if rgb is not None:
+			if type(rgb)==tuple:
+				self.r,self.g,self.b=rgb
+				return
+			if type(rgb) is str:
+				rgb=int(rgb,16)
+			self.r,self.g,self.b=fromRgb(rgb)
+			self.type=Colors.rgb
+		elif xterm is not None:
+			self.xterm=xterm
+			self.type=Colors.xterm
+		elif retro is not None:
+			self.retro=retro
+			self.type=Colors.retro
+		else:
+			self.type=Colors.blank
+
 bold="1"
 dim="2"
 resetweight="22"

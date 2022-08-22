@@ -1,9 +1,8 @@
 import TerminalUI as tui
 import Terminal as trm
-from time import sleep as wait
 
-@showError
-@withCanvas
+# @showError
+# @withCanvas
 def main(term):
 	keyIter=trm.keys()
 	key=None
@@ -31,3 +30,5 @@ def main(term):
 		key=next(keyIter)
 		if key=="ctrl z":
 			break
+
+main(tui.Terminal())

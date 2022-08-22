@@ -1,8 +1,7 @@
-import TerminalUI as tui
+import TermCanvas as tc
 import Terminal as trm
 
-# @showError
-# @withCanvas
+@tc.canvasApp
 def main(term):
 	keyIter=trm.keys()
 	key=None
@@ -30,5 +29,3 @@ def main(term):
 		key=next(keyIter)
 		if key=="ctrl z":
 			break
-
-main(tui.Terminal())

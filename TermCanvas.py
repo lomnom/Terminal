@@ -281,3 +281,21 @@ class Terminal:
 			self.cursor.addCh(data[pos],self)
 			self.cursor+=inc
 			pos+=1
+
+def canvasApp(main):
+	term.raw()
+	term.noctrlc()
+	term.canvas()
+	term.clear()
+	try:
+		main(Terminal())
+	except Exception as err:
+		term.clear()
+		term.uncanvas()
+		term.ctrlc()
+		term.raw()
+		raise err
+	term.clear()
+	term.uncanvas()
+	term.ctrlc()
+	term.unraw()

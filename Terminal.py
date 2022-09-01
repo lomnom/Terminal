@@ -21,6 +21,7 @@ fyellow="\033[33m"
 fblue="\033[34m"
 fmagenta="\033[35m"
 fcyan="\033[36m"
+fwhite="\033[37m"
 fdefault="\033[39m" #reset text color
 
 #background
@@ -30,7 +31,20 @@ byellow="\033[43m"
 bblue="\033[44m"
 bmagenta="\033[45m"
 bcyan="\033[46m"
+bwhite="\033[47m"
 bdefault="\033[49m" #reset text color
+
+black256=0
+red256=1
+green256=2
+yellow256=3
+blue256=4
+magenta256=5
+cyan256=6
+white256=7
+
+f256=lambda ID: f"\033[38;5;{ID}m" #foreground in 256col mode
+b256=lambda ID: f"\033[48;5;{ID}m" #background in 256col mode
 
 bold="\033[1m"
 dim="\033[2m"

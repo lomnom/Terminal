@@ -194,17 +194,21 @@ class Terminal:
 		term.fprint(self._render())
 
 	def print(self,data,inc=(1,0)):
-		pos=0
-		while not pos==(len(data)-1):
-			self.cursor.addCh(data[pos],self)
+		for char in data:
+			self.cursor.addCh(char,self)
 			self.cursor+=inc
-			pos+=1
+
+	def line(self,chr,length,inc=(1,0)):
+		for _ in range(length):
+			self.cursor.addCh(chr,self)
+			self.cursor+=inc
 
 	def sprint(self,data,inc=(1,0)): #aaAAAAAAA
 		pos=0
 		proccessFg=False
 		proccessBg=False
 		escaped=False
+		x=self.cursor.x
 		while not pos>=len(data):
 			if data[pos]=="\\":
 				escaped=True
@@ -230,7 +234,7 @@ class Terminal:
 					continue
 				elif data[pos]=="\n":
 					self.cursor.y+=1
-					self.cursor.x=0
+					self.cursor.x=x
 					self.cursor.bound()
 					pos+=1
 					continue
@@ -269,7 +273,7 @@ def canvasApp(main):
 		term.clear()
 		term.uncanvas()
 		term.ctrlc()
-		term.raw()
+		term.unraw()
 		raise err
 	term.clear()
 	term.uncanvas()

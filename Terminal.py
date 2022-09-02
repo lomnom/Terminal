@@ -97,7 +97,7 @@ def updateSize(*a):
 	maxx=columns-1
 	maxy=rows-1
 	for receiver in sizereceivers:
-		sizereceivers[receiver](rows,cols)
+		sizereceivers[receiver](rows,columns)
 
 signal.signal(signal.SIGWINCH, updateSize)
 

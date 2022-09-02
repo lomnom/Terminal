@@ -12,7 +12,8 @@ canvasscreen="\033[?47h"
 cleartoeos="\033[0J"
 cleartoeol="\033[0K"
 
-movecursor="\033[{row};{column}H"
+movecursor=lambda row,col: f"\033[{row};{col}H"
+colcursor=lambda col: f"\033[{col}G"
 
 #foreground
 fred="\033[31m"

@@ -35,35 +35,6 @@ for item in flags:
 	if len(item)==4:
 		s2m[item[3]]=item[:-1]
 
-class _Diff:
-	def __init__(self,prev,fcolor="",bcolor="",flags=None):
-		self.fcolor=fcolor
-		self.bcolor=bcolor
-		self.prev=prev
-		if flags is None:
-			self.flags=set()
-		else:
-			self.flags=set(flags)
-	def __str__(self):
-		nums=[]
-		for flag in self.flags:
-			if flag not in self.prev.flags:
-				nums+=f2m[flag][0]
-		if self.fcolor:
-			nums+=[f"38;5;{self.fcolor}" if not self.fcolor=="default" else "39"]
-		if self.bcolor:
-			nums+=[f"48;5;{self.bcolor}" if not self.bcolor=="default" else "49"]
-		for flag in self.prev.flags:
-			if flag not in self.flags:
-				nums+=["2"+f2m[flag][1]]
-				if flag in "bd":
-					if 'b' in self.flags:
-						nums+=f2m['b'][0]
-					elif 'd' in self.flags:
-						nums+=f2m['d'][0]
-
-		return ("\033["+(";".join(nums))+"m" if nums else "")
-
 class Char:
 	def __init__(self,char,fcolor="default",bcolor="default",flags=None):
 		assert(len(char)==1)
@@ -74,7 +45,6 @@ class Char:
 			self.flags=set()
 		else:
 			self.flags=set(flags)
-		assert(sum(flag in f2m for flag in self.flags)==len(self.flags))
 
 	def __str__(self):
 		colors=(term.f256(self.fcolor) if not self.fcolor=="default" else term.fdefault) + \
@@ -88,12 +58,27 @@ class Char:
 		return colors+effects+self.char
 
 	def __sub__(self,other): 
-		return _Diff(
-			self,
-			fcolor=(other.fcolor if other.fcolor!=self.fcolor else ""),
-			bcolor=(other.bcolor if other.bcolor!=self.bcolor else ""),
-			flags=other.flags
-		)
+		nums=""
+		for flag in other.flags:
+			if flag not in self.flags:
+				nums+=f2m[flag][0]+";"
+		if self.fcolor != other.fcolor:
+			nums+=f"38;5;{other.fcolor};" if not other.fcolor=="default" else "39;"
+		if self.bcolor != other.bcolor:
+			nums+=f"48;5;{other.bcolor};" if not other.bcolor=="default" else "49;"
+		for flag in self.flags:
+			if flag not in other.flags:
+				nums+="2"+f2m[flag][1]+";"
+				if flag in "bd":
+					if 'b' in other.flags:
+						nums+=f2m['b'][0]+";"
+					elif 'd' in other.flags:
+						nums+=f2m['d'][0]+";"
+
+		return (f"\033[{nums[:-1]}m" if nums else "")
+
+	def isNothing(self):
+		return self.char==" " and ('r' not in self.flags) and self.bcolor=="default"
 
 class Cursor:
 	def __init__(self,x,y,fcolor="default",bcolor="default",flags=None):
@@ -154,7 +139,10 @@ class Terminal:
 	def clear(self):
 		for row in range(term.rows):
 			for col in range(term.columns):
-				self.matrix[row][col]=Char(" ")
+				c=self.matrix[row][col]
+				c.char=self.filler
+				c.fcolor,c.bcolor="default","default"
+				c.flags.clear()
 
 	def __del__(self):
 		del term.sizereceivers[self.id]
@@ -179,14 +167,26 @@ class Terminal:
 	def _render(self):
 		prev=None
 		res=""
+		skipped=0
 		for row in self.matrix:
+			x=0
 			for char in row:
+				x+=1
 				if prev==None:
 					res+=str(char)
+					prev=char
 				else:
-					res+=str(prev-char)+char.char
-				prev=char
+					toAdd=(prev-char)+char.char
+					if toAdd==" " and char.isNothing():
+						skipped+=1
+						continue
+					if skipped>0:
+						res+=term.cleartoeol+term.colcursor(x)
+						skipped=0
+					res+=toAdd
+					prev=char
 			res+="\n"
+			skipped=0
 		res=res[:-1]+term.homecursor
 		return res
 

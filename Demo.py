@@ -7,11 +7,11 @@ def main(term):
 	key=None
 
 	while True:
-		term.sprint("\b[blue]*HE*^LLO^ \f[magenta]\b[green]*WO*^RLD^!\b\f[default]\n")
+		term.sprint("\b[blue]*HE*|LLO| \f[magenta]\b[green]*WO*|RLD|!\b\f[default]\n")
 		term.sprint("Effects:\n")
 		term.sprint("    - *BOLD*\n")
-		term.sprint("    - ^DIM^\n")
-		term.sprint("    - *^BOLD+DIM^*\n")
+		term.sprint("    - |uline|\n")
+		term.sprint("    - *|BOLD+uline|*\n")
 		term.sprint("Colors:\n")
 		term.sprint("    - \f[red]re\f[default]\b[red]d\b[default]\n")
 		term.sprint("    - \f[green]gr\f[default]\b[green]een\b[default]\n")

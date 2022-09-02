@@ -46,6 +46,8 @@ white256=7
 f256=lambda ID: f"\033[38;5;{ID}m" #foreground in 256col mode
 b256=lambda ID: f"\033[48;5;{ID}m" #background in 256col mode
 
+reset="\033[0m"
+
 bold="\033[1m"
 dim="\033[2m"
 italic="\033[3m"

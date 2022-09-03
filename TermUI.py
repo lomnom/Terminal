@@ -20,28 +20,56 @@ class Lines:
 	double=LineSet('═',"║","╔","╗","╚","╝")
 
 class Element:
+	index=None
 	parent=None
 	flexible=False
 	def size(self): # -> (rows,cols)
-		raise NotImplementedError
+		return self.parent.allocSz(self)
 
 	def render(self,cnv,x,y,mx,my): # (canvas,render x,render y,lim x,lim x) -> rendered sz (x,y) 
-		raise NotImplementedError
+		raise NotImplementedError   # where lim and render are from allocated
 
 	def pos(self): # -> (x,y)
-		raise NotImplementedError
+		return self.parent.allocPos(self)
 
 class Container(Element):
 	child=None
 	def innerSize(self): # -> (rows,cols)
-		raise NotImplementedError
+		return self.size()
 
 	def setChild(self,child):
 		self.child=child
 		child.parent=self
 
 	def innerPos(self):
+		return self.pos()
+
+	def allocPos(self,child):
+		return self.innerPos()
+
+	def allocSz(self,child):
+		return self.innerSize()
+
+class MultiContainer(Container):
+	children=None
+	def setChild(self,child,index):
+		if index<=len(self.children):
+			self.children.append(child)
+		else:
+			self.children[index]=child
+		child.parent=self
+
+	def allocPos(self,child):
 		raise NotImplementedError
+
+	def allocSz(self,child):
+		return NotImplementedError
+
+class VStack(MultiContainer):
+	def __init__(self,*children):
+		self.children=[]
+		for index,child in enumerate(children):
+			self.setChild(child,index)
 
 class Root(Container):
 	def __init__(self,canvas,child):
@@ -67,46 +95,33 @@ class Squisher(Container):
 		self.squishX,self.squishY=squishX,squishY
 
 	def size(self):
-		ph,pw=self.parent.innerSize()
+		ph,pw=self.parent.allocSz(self)
 		return ((ph if not self.squishY else self.squishY+1),
 			    (pw if not self.squishX else self.squishX+1))
 
-	innerSize=size
-
 	def render(self,cnv,x,y,mx,my):
-		ph,pw=self.parent.innerSize()
+		ph,pw=self.parent.allocSz(self)
 		self.child.render(
-			cnv,*self.parent.innerPos(),
+			cnv,*self.parent.allocPos(self),
 			(pw-1 if not self.squishX else self.squishX-1),
 			(ph-1 if not self.squishY else self.squishY-1)
 		)
-
-	def pos(self):
-		return self.parent.pos()
-
-	innerPos=pos
 
 class Box(Container):
 	def __init__(self,child,lines):
 		self.setChild(child)
 		self.line=lines
 
-	def size(self):
-		return self.parent.innerSize()
-
 	def innerSize(self):
-		ph,pw=self.parent.innerSize()
+		ph,pw=self.parent.allocSz(self)
 		return (ph-2,pw-2)
 
-	def pos(self):
-		return self.parent.innerPos()
-
 	def innerPos(self):
-		px,py=self.parent.innerPos()
+		px,py=self.parent.allocPos(self)
 		return (px+1,py+1)
 
 	def render(self,cnv,x,y,mx,my):
-		self.child.render(cnv,x+1,y+1,mx-1,my-2)
+		self.child.render(cnv,x+1,y+1,mx-2,my-2)
 		cnv.cursor.goto(x,y)
 		cnv.print(self.line.tl)
 		cnv.line(self.line.h,mx-1)

@@ -71,6 +71,21 @@ class VStack(MultiContainer):
 		for index,child in enumerate(children):
 			self.setChild(child,index)
 
+	def allocPos(self,child):
+		child=self.children.index(child)
+		above=sum(map(lambda child: child.size()[0],self.children[:child]))
+		px,py=self.parent.allocPos(self)
+		return (px,py+above)
+
+	def allocSz(self,child):
+		return (trm.rows,self.parent.allocSz(self)[1])
+
+	def render(self,cnv,x,y,mx,my):
+		for child in self.children:
+			cr,cc=child.size()
+			child.render(cnv,x,y,mx,cr)
+			y+=cr
+
 class Root(Container):
 	def __init__(self,canvas,child):
 		self.canvas=canvas
@@ -97,14 +112,13 @@ class Squisher(Container):
 	def size(self):
 		ph,pw=self.parent.allocSz(self)
 		return ((ph if not self.squishY else self.squishY+1),
-			    (pw if not self.squishX else self.squishX+1))
+		        (pw if not self.squishX else self.squishX+1))
 
 	def render(self,cnv,x,y,mx,my):
-		ph,pw=self.parent.allocSz(self)
+		mr,mc=self.size()
 		self.child.render(
 			cnv,*self.parent.allocPos(self),
-			(pw-1 if not self.squishX else self.squishX-1),
-			(ph-1 if not self.squishY else self.squishY-1)
+			mc-1,mr-1
 		)
 
 class Box(Container):
@@ -138,10 +152,10 @@ class Aligner(Container):
 
 import textwrap
 class Text(Element):
+	flexible=True
 	def __init__(self,text,raw=False):
 		self.raw=raw
 		self.text=text
-		self.flexible=True
 
 	def size(self):
 		lines=self.text.split("\n")

@@ -22,7 +22,6 @@ class Lines:
 class Element:
 	index=None
 	parent=None
-	flexible=False
 	def size(self): # -> (rows,cols)
 		return self.parent.allocSz(self)
 
@@ -32,22 +31,40 @@ class Element:
 	def pos(self): # -> (x,y)
 		return self.parent.allocPos(self)
 
+	def adopted(self,parent):
+		self.parent=parent
+
+	def disowned(self):
+		self.parent=None
+
+	extensions={}
+	def __getattr__(self,attr):
+		return self.extensions[attr](self)
+
 class Container(Element):
 	child=None
 	def innerSize(self): # -> (rows,cols)
 		return self.size()
 
 	def setChild(self,child):
+		if self.child is not None:
+			self.child.disowned()
 		self.child=child
-		child.parent=self
+		child.adopted(self)
+
+	def disownChild(self,child):
+		self.child.disowned()
+		self.child=None
 
 	def innerPos(self):
 		return self.pos()
 
 	def allocPos(self,child):
+		assert(child is self.child)
 		return self.innerPos()
 
 	def allocSz(self,child):
+		assert(child is self.child)
 		return self.innerSize()
 
 class MultiContainer(Container):
@@ -57,34 +74,100 @@ class MultiContainer(Container):
 			self.children.append(child)
 		else:
 			self.children[index]=child
-		child.parent=self
+		child.adopted(self)
+
+	updateChild=setChild
+
+	def disownChild(self,child):
+		child.disowned()
+		self.children.remove(child)
+		return child
 
 	def allocPos(self,child):
 		raise NotImplementedError
 
 	def allocSz(self,child):
-		return NotImplementedError
+		raise NotImplementedError
 
-class VStack(MultiContainer):
-	def __init__(self,*children):
+class AllocatedMContainer(MultiContainer):
+	allocations=None
+	fixed=0
+	def setChild(self,child,allocation,index):
+		if index<=len(self.children):
+			self.allocations.append(allocation)
+		else:
+			if self.allocations[index][-1]!='%':
+				self.fixed-=int(self.allocations[index])
+			self.allocations[index]=allocation
+		if allocation[-1]!='%':
+			self.fixed+=int(allocation)
+		return super().setChild(child,index)
+
+	updateChild=setChild
+
+	def disownChild(self,child):
+		index=self.children.index(child)
+		if self.allocations[index][-1]!='%':
+			self.fixed-=int(self.allocations[index])
+		self.allocations.pop(index)
+		return super().disownChild(child)
+
+	def calcAlloc(self):
+		raise NotImplementedError
+
+class Alloc(AllocatedMContainer):
+	def __init__(self,orientation,*children):
 		self.children=[]
+		self.allocations=[]
+		self.v= orientation=='vertical'
 		for index,child in enumerate(children):
-			self.setChild(child,index)
+			self.setChild(child[0],child[1],index)
+
+	def calcAlloc(self):
+		ra,ca=self.parent.allocSz(self)
+		alloced=ra if self.v else ca
+		alloced=alloced-self.fixed
+		offset=0
+		allocs=[]
+		for alloc in self.allocations:
+			if alloc[-1]!='%':
+				sz=int(alloc)
+				allocs.append(sz)
+			else:
+				percent=float(alloc[:-1])
+				sz=alloced*(percent/100)
+				offset+=sz%1
+				sz=int(sz)
+				if offset>=1:
+					sz+=1
+					offset-=1
+				allocs.append(sz)
+		return allocs
 
 	def allocPos(self,child):
 		child=self.children.index(child)
-		above=sum(map(lambda child: child.size()[0],self.children[:child]))
+		allocs=self.calcAlloc()[:child]
 		px,py=self.parent.allocPos(self)
-		return (px,py+above)
+		return (px,py+sum(allocs)) if self.v else (px+sum(allocs),py)
 
 	def allocSz(self,child):
-		return (trm.rows,self.parent.allocSz(self)[1])
+		child=self.children.index(child)
+		return (self.calcAlloc()[child],self.parent.allocSz(self)[1]) if self.v else \
+		       (self.parent.allocSz(self)[0],self.calcAlloc()[child])
 
 	def render(self,cnv,x,y,mx,my):
-		for child in self.children:
-			cr,cc=child.size()
-			child.render(cnv,x,y,mx,cr)
-			y+=cr
+		allocs=self.calcAlloc()
+		for index,child in enumerate(self.children):
+			allocd=allocs[index]
+			child.render(cnv,x,y,mx,allocd)
+			if self.v: y+=allocd
+			else: x+=allocd
+
+def VAlloc(*args,**kwargs):
+	return Alloc('vertical',*args,**kwargs)
+
+def HAlloc(*args,**kwargs):
+	return Alloc('horizontal',*args,**kwargs)
 
 class Root(Container):
 	def __init__(self,canvas,child):
@@ -121,6 +204,8 @@ class Squisher(Container):
 			mc-1,mr-1
 		)
 
+Element.extensions['squish']=lambda self: lambda *args,**kwargs: Squisher(self,*args,**kwargs)
+
 class Box(Container):
 	def __init__(self,child,lines):
 		self.setChild(child)
@@ -150,9 +235,7 @@ class Box(Container):
 class Aligner(Container):
 	pass
 
-import textwrap
 class Text(Element):
-	flexible=True
 	def __init__(self,text,raw=False):
 		self.raw=raw
 		self.text=text
@@ -163,8 +246,5 @@ class Text(Element):
 
 	def render(self,cnv,x,y,mx,my):
 		cnv.cursor.goto(x,y)
-		wrapped=textwrap.wrap(self.text,width=mx+1)
-		wrapped=wrapped[:my]
-		self.raw or cnv.sprint("\n".join(wrapped))
-		self.raw and cnv.print("\n".join(wrapped))
-		return (len(wrapped),max(len(line) for line in wrapped))
+		self.raw or cnv.sprint(self.text)
+		self.raw and cnv.print(self.text)

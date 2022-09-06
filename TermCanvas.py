@@ -78,7 +78,8 @@ class Char:
 		return (f"\033[{nums[:-1]}m" if nums else "")
 
 	def isNothing(self):
-		return self.char==" " and ('r' not in self.flags) and self.bcolor=="default"
+		return self.char==" " and ('r' not in self.flags) and ('u' not in self.flags)  \
+		       and self.bcolor=="default"
 
 class Cursor:
 	def __init__(self,x,y,fcolor="default",bcolor="default",flags=None):
@@ -137,9 +138,8 @@ class Terminal:
 		self.cursor=Cursor(0,0)
 
 	def clear(self):
-		for row in range(term.rows):
-			for col in range(term.columns):
-				c=self.matrix[row][col]
+		for cr in self.matrix:
+			for c in cr:
 				c.char=self.filler
 				c.fcolor,c.bcolor="default","default"
 				c.flags.clear()
@@ -180,9 +180,8 @@ class Terminal:
 					if toAdd==" " and char.isNothing():
 						skipped+=1
 						continue
-					if skipped>0:
-						res+=term.cleartoeol+term.colcursor(x)
-						skipped=0
+					res+=self.filler*skipped
+					skipped=0
 					res+=toAdd
 					prev=char
 			res+="\n"
@@ -208,6 +207,7 @@ class Terminal:
 		proccessFg=False
 		proccessBg=False
 		escaped=False
+		length=0
 		x=self.cursor.x
 		while not pos>=len(data):
 			if data[pos]=="\\":
@@ -260,7 +260,9 @@ class Terminal:
 
 			self.cursor.addCh(data[pos],self)
 			self.cursor+=inc
+			length+=1
 			pos+=1
+		return length
 
 def canvasApp(main):
 	term.raw()

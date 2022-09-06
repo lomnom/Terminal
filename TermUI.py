@@ -21,12 +21,13 @@ class Lines:
 
 class Element:
 	index=None
+	ridgid=False #(grows to fill rows, cols), does not check parent size
 	parent=None
 	def size(self): # -> (rows,cols)
 		return self.parent.allocSz(self)
 
-	def render(self,cnv,x,y,mx,my): # (canvas,render x,render y,lim x,lim x) -> rendered sz (x,y) 
-		raise NotImplementedError   # where lim and render are from allocated
+	def render(self,cnv,x,y,h,w): # (canvas,render x,render y,height,width) -> rendered sz (x,y) 
+		raise NotImplementedError 
 
 	def pos(self): # -> (x,y)
 		return self.parent.allocPos(self)
@@ -115,6 +116,22 @@ class AllocatedMContainer(MultiContainer):
 	def calcAlloc(self):
 		raise NotImplementedError
 
+class ZStack(MultiContainer):
+	def __init__(self,*children):
+		self.children=[]
+		for index,child in enumerate(children):
+			self.setChild(child,index)
+
+	def allocPos(self,child):
+		return self.parent.allocPos(self)
+
+	def allocSz(self,child):
+		return self.parent.allocSz(self)
+
+	def render(self,cnv,x,y,ph,pw):
+		for child in self.children:
+			child.render(cnv,x,y,ph,pw)
+
 class Alloc(AllocatedMContainer):
 	def __init__(self,orientation,*children):
 		self.children=[]
@@ -155,13 +172,16 @@ class Alloc(AllocatedMContainer):
 		return (self.calcAlloc()[child],self.parent.allocSz(self)[1]) if self.v else \
 		       (self.parent.allocSz(self)[0],self.calcAlloc()[child])
 
-	def render(self,cnv,x,y,mx,my):
+	def render(self,cnv,x,y,h,w):
 		allocs=self.calcAlloc()
 		for index,child in enumerate(self.children):
 			allocd=allocs[index]
-			child.render(cnv,x,y,mx,allocd)
-			if self.v: y+=allocd
-			else: x+=allocd
+			if self.v: 
+				child.render(cnv,x,y,allocd,w)
+				y+=allocd
+			else: 
+				child.render(cnv,x,y,h,allocd)
+				x+=allocd
 
 def VAlloc(*args,**kwargs):
 	return Alloc('vertical',*args,**kwargs)
@@ -170,6 +190,7 @@ def HAlloc(*args,**kwargs):
 	return Alloc('horizontal',*args,**kwargs)
 
 class Root(Container):
+	ridgid=(True,True)
 	def __init__(self,canvas,child):
 		self.canvas=canvas
 		self.setChild(child)
@@ -180,7 +201,9 @@ class Root(Container):
 	innerSize=size
 
 	def render(self):
+		self.canvas.clear()
 		self.child.render(self.canvas,0,0,trm.maxx,trm.maxy)
+		self.canvas.render()
 
 	def pos(self):
 		return (0,0)
@@ -188,23 +211,56 @@ class Root(Container):
 	innerPos=pos
 
 class Squisher(Container):
-	def __init__(self,child,squishX=None,squishY=None):
+	def __init__(self,child,squishH=None,squishV=None):
 		self.setChild(child)
-		self.squishX,self.squishY=squishX,squishY
+		self.squishH=squishH
+		self.squishV=squishV
+		self.ridgid=squishH is not None and squishV is not None
 
 	def size(self):
-		ph,pw=self.parent.allocSz(self)
-		return ((ph if not self.squishY else self.squishY+1),
-		        (pw if not self.squishX else self.squishX+1))
+		if not self.ridgid:
+			ph,pw=self.parent.allocSz(self)
+			return ((ph if not self.squishV else self.squishV),
+			        (pw if not self.squishH else self.squishH))
+		else:
+			return (self.squishV,self.squishH)
 
-	def render(self,cnv,x,y,mx,my):
-		mr,mc=self.size()
+	def render(self,cnv,x,y,ph,pw):
 		self.child.render(
-			cnv,*self.parent.allocPos(self),
-			mc-1,mr-1
+			cnv,x,y,
+			(ph if not self.squishV else self.squishV),
+			(pw if not self.squishH else self.squishH)
 		)
 
 Element.extensions['squish']=lambda self: lambda *args,**kwargs: Squisher(self,*args,**kwargs)
+
+class Padding(Container):
+	def __init__(self,child,top=0,bottom=0,left=0,right=0):
+		self.setChild(child)
+		self.top,self.bottom,self.left,self.right=top,bottom,left,right
+
+	def innerSize(self):
+		ph,pw=self.parent.allocSz(self)
+		return (ph-(self.top+self.bottom),pw-(self.left+self.right))
+
+	def innerPos(self):
+		px,py=self.parent.allocPos(self)
+		return (px+self.left,py+self.top)
+
+	def render(self,cnv,x,y,ph,pw):
+		self.child.render(
+			cnv,*self.innerPos(),
+			ph-(self.top+self.bottom),pw-(self.left+self.right)
+		)
+
+Element.extensions['pad']=lambda self: lambda *args,**kwargs: Padding(self,*args,**kwargs)
+
+class Nothing(Element):
+	def __init__(self):
+		pass
+
+	def render(self,*_):
+		pass
 
 class Box(Container):
 	def __init__(self,child,lines):
@@ -219,23 +275,52 @@ class Box(Container):
 		px,py=self.parent.allocPos(self)
 		return (px+1,py+1)
 
-	def render(self,cnv,x,y,mx,my):
-		self.child.render(cnv,x+1,y+1,mx-2,my-2)
+	def render(self,cnv,x,y,ph,pw):
+		self.child.render(cnv,x+1,y+1,ph-2,pw-2)
 		cnv.cursor.goto(x,y)
 		cnv.print(self.line.tl)
-		cnv.line(self.line.h,mx-1)
+		cnv.line(self.line.h,pw-2)
 		cnv.print(self.line.tr)
 		cnv.cursor.goto(x,y+1)
-		cnv.line(self.line.v,my-1,inc=(0,1))
+		cnv.line(self.line.v,ph-2,inc=(0,1))
 		cnv.print(self.line.bl)
-		cnv.line(self.line.h,mx-1)
+		cnv.line(self.line.h,pw-2)
 		cnv.print(self.line.br,inc=(0,-1))
-		cnv.line(self.line.v,my-1,inc=(0,-1))
+		cnv.line(self.line.v,ph-2,inc=(0,-1))
+
+Element.extensions['box']=lambda self: lambda *args,**kwargs: Box(self,*args,**kwargs)
 
 class Aligner(Container):
-	pass
+	def __init__(self,child,alignH=None,alignV=False):
+		assert(child.ridgid)
+		self.setChild(child)
+		self.alignH=alignH
+		self.alignV=alignV
+
+	def innerPos(self):
+		ch,cw=self.child.size()
+		xs,ys=self.pos()
+		sh,sw=self.size()
+		if self.alignH:
+			if self.alignH=="right":
+				xs+=sw-cw
+			elif self.alignH=="middle":
+				xs+=(sw-cw)//2
+		if self.alignV:
+			if self.alignV=="bottom":
+				ys+=sh-ch
+			elif self.alignV=="middle":
+				ys+=(sh-ch)//2
+		return (xs,ys)
+
+	def render(self,cnv,x,y,ph,pw):
+		ch,cw=self.child.size()
+		self.child.render(cnv,*self.innerPos(),ch,cw)
+
+Element.extensions['align']=lambda self: lambda *args,**kwargs: Aligner(self,*args,**kwargs)
 
 class Text(Element):
+	ridgid=True
 	def __init__(self,text,raw=False):
 		self.raw=raw
 		self.text=text
@@ -244,7 +329,7 @@ class Text(Element):
 		lines=self.text.split("\n")
 		return (len(lines),max(len(line) for line in lines))
 
-	def render(self,cnv,x,y,mx,my):
+	def render(self,cnv,x,y,ph,pw):
 		cnv.cursor.goto(x,y)
 		self.raw or cnv.sprint(self.text)
 		self.raw and cnv.print(self.text)

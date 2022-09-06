@@ -139,14 +139,14 @@ mappings={
 	29:"ctrl 4",
 	30:"ctrl 5",
 	31:"ctrl 6",
-	127:"ctrl 7",
+	127:"backspace",
 	23:"ctrl w",
 	5:"ctrl e",
 	18:"ctrl r",
 	20:"ctrl t",
 	25:"ctrl y",
 	21:"ctrl u",
-	9:"ctrl i",
+	9:"tab",
 	16:"ctrl p",
 	1:"ctrl a",
 	4:"ctrl d",
@@ -178,7 +178,7 @@ def readall(blocking=True): #if its one big write (eg. arrow key), it will onnly
 	return data
 
 arrowChars={"A":"up","B":"down","C":"right","D":"left"}
-arrowModifyers={"2":"shift","3":"option","4":"shift option"}
+arrowModifyers={"2":"shift","3":"option","4":"shift option","5":"ctrl"}
 def keys():
 	while True:
 		data=readall()

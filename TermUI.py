@@ -18,6 +18,7 @@ class Lines:
 	thinD=LineSet('┄','┊','┌','┐','└','┘')
 	thickD=LineSet('┅','┋','┏','┓','┗','┛')
 	double=LineSet('═',"║","╔","╗","╚","╝")
+	thinC=LineSet('─','│','╭','╮','╰','╯')
 
 class Element:
 	index=None
@@ -263,9 +264,11 @@ class Nothing(Element):
 		pass
 
 class Box(Container):
-	def __init__(self,child,lines):
+	def __init__(self,child,lines,style="",label=None):
 		self.setChild(child)
 		self.line=lines
+		self.label=label
+		self.style=style
 
 	def innerSize(self):
 		ph,pw=self.parent.allocSz(self)
@@ -278,6 +281,7 @@ class Box(Container):
 	def render(self,cnv,x,y,ph,pw):
 		self.child.render(cnv,x+1,y+1,ph-2,pw-2)
 		cnv.cursor.goto(x,y)
+		cnv.sprint(self.style)
 		cnv.print(self.line.tl)
 		cnv.line(self.line.h,pw-2)
 		cnv.print(self.line.tr)
@@ -287,6 +291,14 @@ class Box(Container):
 		cnv.line(self.line.h,pw-2)
 		cnv.print(self.line.br,inc=(0,-1))
 		cnv.line(self.line.v,ph-2,inc=(0,-1))
+		if self.label:
+			cnv.cursor.goto(x+2,y)
+			cnv.print(self.line.tr)
+			cnv.cursor.nostyle()
+			cnv.sprint(self.label)
+			cnv.sprint(self.style)
+			cnv.print(self.line.tl)
+			cnv.cursor.nostyle()
 
 Element.extensions['box']=lambda self: lambda *args,**kwargs: Box(self,*args,**kwargs)
 

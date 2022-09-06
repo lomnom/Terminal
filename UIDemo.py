@@ -6,7 +6,7 @@ line=tui.Lines
 
 @tc.canvasApp
 def main(cnv):
-	keyText=tui.Text("\f[green]Type stuff\f[default]")
+	keyText=tui.Text("\f[56]Type stuff\f[default]")
 	root=tui.Root(
 		cnv,
 		tui.ZStack(
@@ -26,7 +26,7 @@ def main(cnv):
 				"50%"),
 				(
 					tui.Text("^Lmao^")
-						.box(line.thin)
+						.box(line.thinD)
 						.squish(squishV=10),
 				"5"),
 				(
@@ -34,14 +34,14 @@ def main(cnv):
 				"12"),
 				(
 					keyText
-						.box(line.thin)
+						.box(line.thin,style="\f[104]")
 						.squish(squishV=3),
 				"50%")
 			),
 			tui.Text("\f[cyan]_*:)*_\f[default]")
 				.squish(squishH=2,squishV=1)
 				.align(alignH="right",alignV="bottom")
-		).box(line.thin)
+		).box(line.thinC,style="\f[34]",label="*Random trash*")
 		 .squish(squishH=70,squishV=30)
 		 .align(alignH="middle",alignV="middle")
 
@@ -53,5 +53,5 @@ def main(cnv):
 		key=next(keyIter)
 		if key=='ctrl z':
 			return
-		keyText.text=f"\f[green]You pressed: *{key}*\f[default]"
+		keyText.text=f"\f[56]You pressed: *{key}*\f[default]"
 		root.render()

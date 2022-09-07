@@ -1,7 +1,7 @@
 hidecursor="\033[?25l"
 showcursor="\033[?25h"
 
-homecursor="\033[H"
+homecursor="\033[H" # move cursor to (0,0)
 
 savecursor="\033[s"
 loadcursor="\033[u"
@@ -9,10 +9,10 @@ loadcursor="\033[u"
 normalscreen="\033[?47l"
 canvasscreen="\033[?47h"
 
-cleartoeos="\033[0J"
-cleartoeol="\033[0K"
+cleartoeos="\033[0J" # clear from cursor to end of screen 
+cleartoeol="\033[0K" # clear from cursor to end of line
 
-movecursor=lambda row,col: f"\033[{row};{col}H"
+movecursor=lambda row,col: f"\033[{row};{col}H" #rows and cols start at 1
 colcursor=lambda col: f"\033[{col}G"
 
 #foreground
@@ -35,7 +35,7 @@ bcyan="\033[46m"
 bwhite="\033[47m"
 bdefault="\033[49m" #reset text color
 
-black256=0
+black256=0 #ids for some 256color colours
 red256=1
 green256=2
 yellow256=3
@@ -44,17 +44,22 @@ magenta256=5
 cyan256=6
 white256=7
 
-f256=lambda ID: f"\033[38;5;{ID}m" #foreground in 256col mode
-b256=lambda ID: f"\033[48;5;{ID}m" #background in 256col mode
+f256=lambda ID: f"\033[38;5;{ID}m" #foreground in 256col, values range 0-255
+b256=lambda ID: f"\033[48;5;{ID}m" #background in 256col 
 
-reset="\033[0m"
+reset="\033[0m" # resets all color and font effects
 
 bold="\033[1m"
 dim="\033[2m"
 italic="\033[3m"
 underline="\033[4m"
+flashing="\033[5m"
+inverse="\033[7m"
+hidden="\033[8m"
+strikethrough="\033[9m"
 
-resetweight="\033[22m"
+resetweight="\033[22m" #resets both bold and dim
+resetstyle=lambda style: style[:-2]+"2"+style[-2:] # pass a style escape to this to have the opp
 
 from sys import stdin,stdout
 from os import get_terminal_size as termsize
@@ -85,11 +90,12 @@ rows=size.lines
 columns=size.columns
 maxx=columns-1
 maxy=rows-1
-sizereceivers={}
+sizereceivers={} # add your function to this dict to be called when term size changes
+# fn will be called as fn(rows,columns)
 
 import signal
 
-def updateSize(*a):
+def updateSize(*a): # called whenever terminal size changes, do not manually invoke
 	global size,rows,columns,maxx,maxy,sizereceivers
 	size=termsize()
 	rows=size.lines
@@ -103,7 +109,7 @@ signal.signal(signal.SIGWINCH, updateSize)
 
 read=stdin.read
 
-def raw():
+def raw(): # do not display keystrokes and have immediate inout without pressing enter
 	raw=termios.tcgetattr(fd)
 	raw[3]=raw[3] & ~(termios.ECHO | termios.ICANON)
 	termios.tcsetattr(fd,termios.TCSADRAIN,raw)
@@ -113,7 +119,7 @@ def unraw():
 	unraw[3]=unraw[3] | (termios.ECHO | termios.ICANON)
 	termios.tcsetattr(fd,termios.TCSADRAIN,unraw)
 
-def noctrlc():
+def noctrlc(): #ctrl c and z stop working
 	noctrlc=termios.tcgetattr(fd)
 	noctrlc[3]=noctrlc[3] & ~termios.ISIG
 	termios.tcsetattr(fd,termios.TCSADRAIN,noctrlc)
@@ -123,7 +129,7 @@ def ctrlc():
 	ctrlc[3]=ctrlc[3] | termios.ISIG
 	termios.tcsetattr(fd,termios.TCSADRAIN,ctrlc)
 
-def canvas():
+def canvas(): # flip to program terminal buffer, leave the console
 	fprint(savecursor+hidecursor+canvasscreen)
 
 def clear():
@@ -168,7 +174,7 @@ def proccessTermChar(char):
 	else: 
 		return char
 
-def stdinempty():
+def stdinempty(): # check if there is data to read from stdin
 	return select.select([sys.stdin,],[],[],0.0)[0]==[]
 
 def readall(blocking=True): #if its one big write (eg. arrow key), it will onnly get first char :(
@@ -179,7 +185,8 @@ def readall(blocking=True): #if its one big write (eg. arrow key), it will onnly
 
 arrowChars={"A":"up","B":"down","C":"right","D":"left"}
 arrowModifyers={"2":"shift","3":"option","4":"shift option","5":"ctrl"}
-def keys():
+# supports special keys like ctrl z and shift up
+def keys(): # yields all keystrokes, call raw() before to not require pressing enter
 	while True:
 		data=readall()
 		while data!="":
@@ -211,7 +218,8 @@ class Action:
 	def run(self):
 		return self.func(*self.args,**self.kwargs)
 
-class KeyHandler:
+class KeyHandler: # asynchronous keystroke handler
+	# example: KeyHandler({'w':Action(up),'a':Action(down)})
 	def __init__(self,actions):
 		self.actions=actions
 		self.thread=None
@@ -237,7 +245,7 @@ class KeyHandler:
 			if self.thread==None:
 				break
 
-	def handle(self):
+	def handle(self): # call to begin tracking strokes
 		if self.thread==None:
 			self.thread=thread(target=self._handle)
 			self.thread.start()
@@ -248,7 +256,7 @@ class KeyHandler:
 
 from time import perf_counter as timecounter
 
-class Stopwatch:
+class Stopwatch: #stopwatch, works like one
 	def __init__(self):
 		self.reset()
 

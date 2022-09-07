@@ -132,8 +132,7 @@ class Terminal:
 	def __init__(self):
 		self.matrix=[]
 		self.id=uuid()
-		term.sizereceivers[self.id]=lambda r,c: self.resize(r,c) or \
-		                                        term.fprint(term.homecursor+term.cleartoeos)
+		term.sizereceivers[self.id]=lambda r,c: self.resize(r,c) or term.clear()
 		self.filler=" "
 		self.resize(term.rows,term.columns)
 		self.cursor=Cursor(0,0)

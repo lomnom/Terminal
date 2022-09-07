@@ -49,32 +49,34 @@ blocks={
 	0b0000:" "
 }
 
-class Element:
+# parent class of all elements
+class Element: # children must implement render
 	index=None
-	ridgid=False #(grows to fill rows, cols), does not check parent size
+	ridgid=False #Has a fixed size
 	parent=None
-	def size(self): # -> (rows,cols)
+	def size(self): # () -> (rows,cols)
 		return self.parent.allocSz(self)
 
-	def render(self,cnv,x,y,h,w): # (canvas,render x,render y,height,width) -> rendered sz (x,y) 
+	def render(self,cnv,x,y,h,w): # (canvas,render x,render y,allocHeight,width) -> None
 		raise NotImplementedError 
 
 	def pos(self): # -> (x,y)
 		return self.parent.allocPos(self)
 
-	def adopted(self,parent):
+	def adopted(self,parent): # called when parent set
 		self.parent=parent
 
-	def disowned(self):
+	def disowned(self): # called when removed
 		self.parent=None
 
 	extensions={}
 	def __getattr__(self,attr):
 		return self.extensions[attr](self)
 
-class Container(Element):
+# parent class of all containers
+class Container(Element): # children only have to implement render()
 	child=None
-	def innerSize(self): # -> (rows,cols)
+	def innerSize(self): # size of inner cavity. () -> (rows,cols)
 		return self.size()
 
 	def setChild(self,child):
@@ -87,20 +89,21 @@ class Container(Element):
 		self.child.disowned()
 		self.child=None
 
-	def innerPos(self):
+	def innerPos(self): # start of inner cavity () -> (x,y)
 		return self.pos()
 
-	def allocPos(self,child):
+	def allocPos(self,child): # position allocated to child (Element) -> (x,y)
 		assert(child is self.child)
 		return self.innerPos()
 
-	def allocSz(self,child):
+	def allocSz(self,child): # area allocated to child () -> (rows,cols)
 		assert(child is self.child)
 		return self.innerSize()
 
-class MultiContainer(Container):
+# parent class of all containers with multiple children
+class MultiContainer(Container): # children have to implement allocPos, allocSz and render()
 	children=None
-	def setChild(self,child,index):
+	def setChild(self,child,index):  # (Element,index), where index is position of child
 		if index<=len(self.children):
 			self.children.append(child)
 		else:
@@ -120,11 +123,12 @@ class MultiContainer(Container):
 	def allocSz(self,child):
 		raise NotImplementedError
 
+# parent class of all containers that have customisable element allocation 
 class AllocatedMContainer(MultiContainer):
 	allocations=None
 	fixed=0
-	def setChild(self,child,allocation,index):
-		if index<=len(self.children):
+	def setChild(self,child,allocation,index): # allocation can be in "int" or "float%"
+		if index<=len(self.children):          
 			self.allocations.append(allocation)
 		else:
 			if self.allocations[index][-1]!='%':
@@ -143,10 +147,10 @@ class AllocatedMContainer(MultiContainer):
 		self.allocations.pop(index)
 		return super().disownChild(child)
 
-	def calcAlloc(self):
+	def calcAlloc(self): # get allocated areas for all children () -> [int]
 		raise NotImplementedError
 
-class ZStack(MultiContainer):
+class ZStack(MultiContainer): # layers all children above each other
 	def __init__(self,*children):
 		self.children=[]
 		for index,child in enumerate(children):
@@ -162,8 +166,8 @@ class ZStack(MultiContainer):
 		for child in self.children:
 			child.render(cnv,x,y,ph,pw)
 
-class Alloc(AllocatedMContainer):
-	def __init__(self,orientation,*children):
+class Alloc(AllocatedMContainer): # allocates all children in an axis
+	def __init__(self,orientation,*children): # ("vertical"|"horizontal",*Element) -> Alloc
 		self.children=[]
 		self.allocations=[]
 		self.v= orientation=='vertical'
@@ -219,7 +223,7 @@ def VAlloc(*args,**kwargs):
 def HAlloc(*args,**kwargs):
 	return Alloc('horizontal',*args,**kwargs)
 
-class Root(Container):
+class Root(Container): # container that is the grandparent of everything, projects onto canvas
 	ridgid=(True,True)
 	def __init__(self,canvas,child):
 		self.canvas=canvas
@@ -240,7 +244,8 @@ class Root(Container):
 
 	innerPos=pos
 
-class Squisher(Container):
+class Squisher(Container): # confine child to set size
+	# (Element,squishH=int (horiz confine),squishV=int (vert confine))
 	def __init__(self,child,squishH=None,squishV=None):
 		self.setChild(child)
 		self.squishH=squishH
@@ -262,9 +267,11 @@ class Squisher(Container):
 			(pw if not self.squishH else self.squishH)
 		)
 
+# any element can have squish called on it to wrap in squisher
+# Element.squish(squishH=int,squishV=int) -> Squisher(Element)
 Element.extensions['squish']=lambda self: lambda *args,**kwargs: Squisher(self,*args,**kwargs)
 
-class Padding(Container):
+class Padding(Container): # adds padding to allocated space
 	def __init__(self,child,top=0,bottom=0,left=0,right=0):
 		self.setChild(child)
 		self.top,self.bottom,self.left,self.right=top,bottom,left,right
@@ -292,8 +299,8 @@ class Nothing(Element):
 	def render(self,*_):
 		pass
 
-class Box(Container):
-	def __init__(self,child,lines,style="",label=None):
+class Box(Container): # adds box within allocated space, style can be all special formatting, eg '*^'
+	def __init__(self,child,lines,style="",label=None): # (Element, LineSet, style=str, label=str)
 		self.setChild(child)
 		self.line=lines
 		self.label=label
@@ -331,7 +338,7 @@ class Box(Container):
 
 Element.extensions['box']=lambda self: lambda *args,**kwargs: Box(self,*args,**kwargs)
 
-class Aligner(Container):
+class Aligner(Container): # aligns child, (Element,alignH="right"|"middle",alignV="bottom"|'middle')
 	def __init__(self,child,alignH=None,alignV=False):
 		assert(child.ridgid)
 		self.setChild(child)
@@ -360,7 +367,7 @@ class Aligner(Container):
 
 Element.extensions['align']=lambda self: lambda *args,**kwargs: Aligner(self,*args,**kwargs)
 
-class Text(Element):
+class Text(Element): # just text
 	ridgid=True
 	def __init__(self,text,raw=False):
 		self.raw=raw

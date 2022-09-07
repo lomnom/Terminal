@@ -152,6 +152,7 @@ mappings={
 	20:"ctrl t",
 	25:"ctrl y",
 	21:"ctrl u",
+	22:"ctrl v",
 	9:"tab",
 	16:"ctrl p",
 	1:"ctrl a",

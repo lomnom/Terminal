@@ -212,39 +212,39 @@ class Action:
 		return self.func(*self.args,**self.kwargs)
 
 class KeyHandler:
-		def __init__(self,actions):
-			self.actions=actions
-			self.thread=None
-			self.tasks=[]
-			self.delay=0.01
+	def __init__(self,actions):
+		self.actions=actions
+		self.thread=None
+		self.tasks=[]
+		self.delay=0.01
 
-		def _handle(self):
-			for key in keys():
+	def _handle(self):
+		for key in keys():
+			try:
+				action=self.actions[key]
+			except KeyError:
 				try:
-					action=self.actions[key]
+					action=self.actions["default"]
+					action=Action(action.func,key,*action.args,**action.kwargs)
 				except KeyError:
-					try:
-						action=self.actions["default"]
-						action=Action(action.func,key,*action.args,**action.kwargs)
-					except KeyError:
-						continue
-				self.tasks+=[[key,thread(target=action.run)]]
-				self.tasks[-1][1].start()
-				for task in reversed(range(len(self.tasks))):
-					if not self.tasks[task][1].is_alive():
-						self.tasks.pop(task)
-				wait(self.delay) #timeframe where key handler can be killed (sketch 1000)
-				if self.thread==None:
-					break
-
-		def handle(self):
+					continue
+			self.tasks+=[[key,thread(target=action.run)]]
+			self.tasks[-1][1].start()
+			for task in reversed(range(len(self.tasks))):
+				if not self.tasks[task][1].is_alive():
+					self.tasks.pop(task)
+			wait(self.delay) #timeframe where key handler can be killed (sketch 1000)
 			if self.thread==None:
-				self.thread=thread(target=self._handle)
-				self.thread.start()
+				break
 
-		def stop(self):
-			self.thread=None
-			self.tasks=[]
+	def handle(self):
+		if self.thread==None:
+			self.thread=thread(target=self._handle)
+			self.thread.start()
+
+	def stop(self):
+		self.thread=None
+		self.tasks=[]
 
 from time import perf_counter as timecounter
 

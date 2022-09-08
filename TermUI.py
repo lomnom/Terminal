@@ -381,3 +381,19 @@ class Text(Element): # just text
 		cnv.cursor.goto(x,y)
 		self.raw or cnv.sprint(self.text)
 		self.raw and cnv.print(self.text)
+
+class Seperator(Element):
+	def __init__(self,orientation,character):
+		self.v= orientation=='vertical'
+		self.character=character
+
+	def render(self,cnv,x,y,ph,pw):
+		cnv.cursor.goto(x,y)
+		if self.v:
+			cnv.line(self.character,ph,inc=(0,1))
+		else:
+			cnv.line(self.character,pw)
+
+	def size(self):
+		ph,pw=self.parent.allocSz(self)
+		return (ph,1) if self.v else (1,pw)

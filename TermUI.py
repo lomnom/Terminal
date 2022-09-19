@@ -353,7 +353,7 @@ class Box(Container): # adds box within allocated space, style can be all specia
 			cnv.sprint(self.label)
 			cnv.sprint(self.style)
 			cnv.print(self.line.tl)
-			cnv.cursor.nostyle()
+		cnv.cursor.nostyle()
 
 Element.extensions['box']=lambda self: lambda *args,**kwargs: Box(self,*args,**kwargs)
 

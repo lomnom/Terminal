@@ -40,9 +40,33 @@ def main(cnv):
 					tui.Nothing(),
 				"12"), # 12 columns of nothing (space)
 				(
-					keyText
-						.box(line.thin,style="\f[104]")
-						.squish(squishV=3),
+					tui.VAlloc(
+						(
+							keyText
+								.box(line.thin,style="\f[104]")
+								.squish(squishV=3),
+						"25%"),
+						(
+							tui.HAlloc(
+								(
+									tui.Text("\f[172]_|Other libs|_\n   Hard\f[default]")
+										.squish(squishH=10,squishV=1)
+										.align(alignH="middle"),
+								"50%"),
+								(
+									tui.Seperator("vertical",line.thinD.v),
+								"1"),
+								(
+									tui.Text("_\f[82]|_This_|\n Ez\f[default]_")
+										.squish(squishH=4,squishV=1)
+										.align(alignH="middle"),
+								"50%"),
+							),
+						"50%"),
+						(
+							tui.Nothing(),
+						"25%")
+					),
 				"50%")
 			),
 			faces # this collection of faces is layered above the HAlloc above

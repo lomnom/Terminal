@@ -108,8 +108,12 @@ class Cursor:
 			char,
 			fcolor=self.fcolor,
 			bcolor=self.bcolor,
-			flags=self.flags
+			flags=self.flags.copy()
 		)
+
+	def putCh(self,char,term):
+		term.matrix[self.y][self.x]=char
+
 
 	def __add__(self,other):
 		self.x+=other[0]

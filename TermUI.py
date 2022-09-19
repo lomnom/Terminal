@@ -123,6 +123,9 @@ class MultiContainer(Container): # children have to implement allocPos, allocSz 
 	def allocSz(self,child):
 		raise NotImplementedError
 
+	def __len__(self):
+		return len(self.children)
+
 # parent class of all containers that have customisable element allocation 
 class AllocatedMContainer(MultiContainer):
 	allocations=None
@@ -149,6 +152,22 @@ class AllocatedMContainer(MultiContainer):
 
 	def calcAlloc(self): # get allocated areas for all children () -> [int]
 		raise NotImplementedError
+
+class ElementSwitcher(MultiContainer): # shows child no. self.visible
+	def __init__(self,*children,visible=0):
+		self.children=[]
+		for index,child in enumerate(children):
+			self.setChild(child,index)
+		self.visible=visible
+
+	def allocPos(self,child):
+		return self.parent.allocPos(self)
+
+	def allocSz(self,child):
+		return self.parent.allocSz(self)
+
+	def render(self,cnv,x,y,ph,pw):
+		self.children[self.visible].render(cnv,x,y,ph,pw)
 
 class ZStack(MultiContainer): # layers all children above each other
 	def __init__(self,*children):
@@ -366,6 +385,16 @@ class Aligner(Container): # aligns child, (Element,alignH="right"|"middle",align
 		self.child.render(cnv,*self.innerPos(),ch,cw)
 
 Element.extensions['align']=lambda self: lambda *args,**kwargs: Aligner(self,*args,**kwargs)
+
+class Wrapper(Container):
+	def __init__(self,child,visible=True):
+		self.setChild(child)
+		self.visible=visible
+
+	def render(self,*args):
+		self.visible and self.child.render(*args)
+
+Element.extensions['wrap']=lambda self: lambda *args,**kwargs: Wrapper(self,*args,**kwargs)
 
 class Text(Element): # just text
 	ridgid=True

@@ -426,3 +426,12 @@ class Seperator(Element):
 	def size(self):
 		ph,pw=self.parent.allocSz(self)
 		return (ph,1) if self.v else (1,pw)
+
+class CanvasDisplay(Element):
+	def __init__(self,canvas,x,y): #x and y are canvas coordinates of rendered top left
+		self.canvas=canvas
+		self.x=x
+		self.y=y
+
+	def render(self,cnv,x,y,ph,pw):
+		self.canvas.render(cnv,x,y,ph,pw,self.x,self.y)

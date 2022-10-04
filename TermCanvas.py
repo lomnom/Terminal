@@ -114,7 +114,6 @@ class Cursor:
 	def putCh(self,char,term):
 		term.matrix[self.y][self.x]=char
 
-
 	def __add__(self,other):
 		self.x+=other[0]
 		self.y+=other[1]
@@ -132,14 +131,12 @@ class Cursor:
 		self.y=y
 		self.bound()
 
-class Terminal:
-	def __init__(self):
+class Canvas:
+	def __init__(self,rows,cols,filler=" "):
 		self.matrix=[]
-		self.id=uuid()
-		term.sizereceivers[self.id]=lambda r,c: self.resize(r,c) or term.clear()
-		self.filler=" "
-		self.resize(term.rows,term.columns)
+		self.filler=filler
 		self.cursor=Cursor(0,0)
+		self.resize(rows,cols)
 
 	def clear(self):
 		for cr in self.matrix:
@@ -147,9 +144,6 @@ class Terminal:
 				c.char=self.filler
 				c.fcolor,c.bcolor="default","default"
 				c.flags.clear()
-
-	def __del__(self):
-		del term.sizereceivers[self.id]
 
 	def resize(self,rows,cols):
 		if rows>len(self.matrix):
@@ -168,33 +162,10 @@ class Terminal:
 			for row in range(len(self.matrix)):
 				self.matrix[row]=self.matrix[row][:cols]
 
-	def _render(self):
-		prev=None
-		res=""
-		skipped=0
-		for row in self.matrix:
-			x=0
-			for char in row:
-				x+=1
-				if prev==None:
-					res+=str(char)
-					prev=char
-				else:
-					toAdd=(prev-char)+char.char
-					if toAdd==" " and char.isNothing():
-						skipped+=1
-						continue
-					res+=self.filler*skipped
-					skipped=0
-					res+=toAdd
-					prev=char
-			res+="\n"
-			skipped=0
-		res=res[:-1]+term.homecursor
-		return res
-
-	def render(self):
-		term.fprint(self._render())
+	#x and y are where to render self. sx and sy are top left of rendered internal area
+	def render(self,cnv,x,y,ph,pw,sx,sy): #cnv is canvas, ph and pw is the size to render self
+		for row in range(ph):
+			cnv.matrix[y+row][x:x+pw]=self.matrix[sy+row][sx:sx+pw]
 
 	def print(self,data,inc=(1,0)):
 		for char in data:
@@ -206,7 +177,7 @@ class Terminal:
 			self.cursor.addCh(chr,self)
 			self.cursor+=inc
 
-	def sprint(self,data,inc=(1,0)): #aaAAAAAAA
+	def sprint(self,data,inc=(1,0)): #aaAAAAAAA Todo: impl a function to compute displayed length
 		pos=0
 		proccessFg=False
 		proccessBg=False
@@ -267,6 +238,43 @@ class Terminal:
 			length+=1
 			pos+=1
 		return length
+
+class Terminal(Canvas):
+	def __init__(self):
+		self.id=uuid()
+		term.sizereceivers[self.id]=lambda r,c: self.resize(r,c) or term.clear()
+		super().__init__(term.rows,term.columns)
+
+	def __del__(self):
+		del term.sizereceivers[self.id]
+
+	def _render(self):
+		prev=None
+		res=""
+		skipped=0
+		for row in self.matrix:
+			x=0
+			for char in row:
+				x+=1
+				if prev==None:
+					res+=str(char)
+					prev=char
+				else:
+					toAdd=(prev-char)+char.char
+					if toAdd==" " and char.isNothing():
+						skipped+=1
+						continue
+					res+=self.filler*skipped
+					skipped=0
+					res+=toAdd
+					prev=char
+			res+="\n"
+			skipped=0
+		res=res[:-1]+term.homecursor
+		return res
+
+	def render(self,*_):
+		term.fprint(self._render())
 
 def canvasApp(main):
 	term.raw()

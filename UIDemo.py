@@ -70,13 +70,15 @@ def main(cnv):
 			),
 			faces # this collection of faces is layered above the HAlloc above
 				.squish(squishH=3,squishV=1) # make the text ridgid by solidly defining its size
-				.align(alignH="right",alignV="bottom"), # align the text to the bottom right
+				.align(alignH="right",alignV="bottom") # align the text to the bottom right
+			,
 			tui.Text("`Press *f* to change my face btw`")
 				.align(alignH="left",alignV="bottom") # align the text to the bottom right
+			,
 		).box(line.thinC,style="\f[34]",label="*Random trash*") # Add a box around everything, with color 34/255 and a label
+		 .bg(233)
 		 .squish(squishH=70,squishV=30)
 		 .align(alignH="middle",alignV="middle") # Align ridgid box to middle of screen
-
 	)
 	root.render() # update what is shown on screen
 

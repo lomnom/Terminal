@@ -435,3 +435,21 @@ class CanvasDisplay(Element):
 
 	def render(self,cnv,x,y,ph,pw):
 		self.canvas.render(cnv,x,y,ph,pw,self.x,self.y)
+
+class BgOverlay(Container):
+	def __init__(self,color,child,prio=True):
+		if color in tc.h256colors:
+			self.color=tc.h256colors[color]
+		else:
+			self.color=color
+		self.setChild(child)
+		self.prio=prio
+
+	def render(self,cnv,x,y,ph,pw):
+		self.prio and self.child.render(cnv,x,y,ph,pw)
+		for row in cnv.matrix[y:y+ph]:
+			for char in row[x:x+pw]:
+				char.bcolor=self.color
+		self.prio or self.child.render(cnv,x,y,ph,pw)
+
+Element.extensions['bg']=lambda self: lambda *args,**kwargs: BgOverlay(*args,self,**kwargs)

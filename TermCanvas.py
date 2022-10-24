@@ -131,6 +131,79 @@ class Cursor:
 		self.y=y
 		self.bound()
 
+class FakeCursor(Cursor):
+	def putCh(*_): pass
+	def addCh(*_): pass
+
+fakecursor=FakeCursor(0,0)
+
+def sprint(data,cursor,cnv,inc=(1,0)):
+	pos=0
+	proccessFg=False
+	proccessBg=False
+	escaped=False
+	height=1
+	width=[0]
+	x=cursor.x
+	while not pos>=len(data):
+		if data[pos]=="\\":
+			escaped=True
+			pos+=1
+			continue
+		elif not escaped:
+			if data[:2]=="\f\b" or data[:2]=="\b\f":
+				pos+=2
+				proccessFg=True
+				proccessBg=True
+				continue
+			elif data[pos]=="\f":
+				pos+=1
+				proccessFg=True
+				continue
+			elif data[pos]=="\b":
+				pos+=1
+				proccessBg=True
+				continue
+			elif data[pos] in s2m:
+				cursor.flags^={s2m[data[pos]][0]}
+				pos+=1
+				continue
+			elif data[pos]=="\n":
+				cursor.y+=1
+				cursor.x=x
+				cursor.bound()
+				pos+=1
+				height+=1
+				width.append(0)
+				continue
+		else:
+			escaped=False
+
+		if proccessBg or proccessFg:
+			if data[pos]=="[":
+				pos+=1
+				color=data[pos:].partition("]")[0]
+				pos+=len(color)+1
+				if color in h256colors:
+					color=h256colors[color]
+				color=int(color) if color!="default" else color
+				assert(color=="default" or color<256) #make sure color in \f[] is valid
+				if proccessFg:
+					cursor.fcolor=color
+				if proccessBg:
+					cursor.bcolor=color
+				proccessFg=False
+				proccessBg=False
+				continue
+
+		cursor.addCh(data[pos],cnv)
+		width[-1]+=inc[0]
+		height+=inc[1]
+		if inc[1]: width.append(0)
+		cursor+=inc
+		pos+=1
+	return (height,max(width))
+
 class Canvas:
 	def __init__(self,rows,cols,filler=" "):
 		self.matrix=[]
@@ -177,67 +250,16 @@ class Canvas:
 			self.cursor.addCh(chr,self)
 			self.cursor+=inc
 
+	def fillRect(self,x,y,h,w,c):
+		l=[c]*w
+		for row in range(y,y+h):
+			self.matrix[row][x:x+w]=l
+
 	def sprint(self,data,inc=(1,0)): #aaAAAAAAA Todo: impl a function to compute displayed length
-		pos=0
-		proccessFg=False
-		proccessBg=False
-		escaped=False
-		length=0
-		x=self.cursor.x
-		while not pos>=len(data):
-			if data[pos]=="\\":
-				escaped=True
-				pos+=1
-				continue
-			elif not escaped:
-				if data[:2]=="\f\b" or data[:2]=="\b\f":
-					pos+=2
-					proccessFg=True
-					proccessBg=True
-					continue
-				elif data[pos]=="\f":
-					pos+=1
-					proccessFg=True
-					continue
-				elif data[pos]=="\b":
-					pos+=1
-					proccessBg=True
-					continue
-				elif data[pos] in s2m:
-					self.cursor.flags^={s2m[data[pos]][0]}
-					pos+=1
-					continue
-				elif data[pos]=="\n":
-					self.cursor.y+=1
-					self.cursor.x=x
-					self.cursor.bound()
-					pos+=1
-					continue
-			else:
-				escaped=False
+		return sprint(data,self.cursor,self,inc=inc)
 
-			if proccessBg or proccessFg:
-				if data[pos]=="[":
-					pos+=1
-					color=data[pos:].partition("]")[0]
-					pos+=len(color)+1
-					if color in h256colors:
-						color=h256colors[color]
-					color=int(color) if color!="default" else color
-					assert(color=="default" or color<256) #make sure color in \f[] is valid
-					if proccessFg:
-						self.cursor.fcolor=color
-					if proccessBg:
-						self.cursor.bcolor=color
-					proccessFg=False
-					proccessBg=False
-					continue
-
-			self.cursor.addCh(data[pos],self)
-			self.cursor+=inc
-			length+=1
-			pos+=1
-		return length
+def ssize(data,inc=(1,0)):
+	return sprint(data,fakecursor,None,inc=inc)
 
 class Terminal(Canvas):
 	def __init__(self):
@@ -268,6 +290,8 @@ class Terminal(Canvas):
 					skipped=0
 					res+=toAdd
 					prev=char
+			if skipped!=0:
+				res+=term.cleartoeol
 			res+="\n"
 			skipped=0
 		res=res[:-1]+term.homecursor

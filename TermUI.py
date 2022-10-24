@@ -186,7 +186,7 @@ class ZStack(MultiContainer): # layers all children above each other
 			child.render(cnv,x,y,ph,pw)
 
 class Alloc(AllocatedMContainer): # allocates all children in an axis
-	def __init__(self,orientation,*children): # ("vertical"|"horizontal",*Element) -> Alloc
+	def __init__(self,orientation,*children): # ("vertical"|"horizontal",*(Element,str) -> Alloc
 		self.children=[]
 		self.allocations=[]
 		self.v= orientation=='vertical'
@@ -255,7 +255,7 @@ class Root(Container): # container that is the grandparent of everything, projec
 
 	def render(self):
 		self.canvas.clear()
-		self.child.render(self.canvas,0,0,trm.maxx,trm.maxy)
+		self.child.render(self.canvas,0,0,trm.rows,trm.columns)
 		self.canvas.render()
 
 	def pos(self):
@@ -398,18 +398,18 @@ Element.extensions['wrap']=lambda self: lambda *args,**kwargs: Wrapper(self,*arg
 
 class Text(Element): # just text
 	ridgid=True
-	def __init__(self,text,raw=False):
+	def __init__(self,text,inc=(1,0),raw=False):
 		self.raw=raw
 		self.text=text
+		self.inc=inc
 
 	def size(self):
-		lines=self.text.split("\n")
-		return (len(lines),max(len(line) for line in lines))
+		return tc.ssize(self.text,inc=self.inc)
 
 	def render(self,cnv,x,y,ph,pw):
 		cnv.cursor.goto(x,y)
-		self.raw or cnv.sprint(self.text)
-		self.raw and cnv.print(self.text)
+		self.raw or cnv.sprint(self.text,inc=self.inc)
+		self.raw and cnv.print(self.text,inc=self.inc)
 
 class Seperator(Element):
 	def __init__(self,orientation,character):

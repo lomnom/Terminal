@@ -43,6 +43,7 @@ def main(cnv):
 					tui.VAlloc(
 						(
 							keyText
+								.align(alignH="middle")
 								.box(line.thin,style="\f[104]")
 								.squish(squishV=3),
 						"25%"),
@@ -50,7 +51,6 @@ def main(cnv):
 							tui.HAlloc(
 								(
 									tui.Text("\f[172]_|Other libs|_\n   Hard\f[default]")
-										.squish(squishH=10,squishV=1)
 										.align(alignH="middle"),
 								"50%"),
 								(
@@ -58,7 +58,6 @@ def main(cnv):
 								"1"),
 								(
 									tui.Text("_\f[82]|_This_|\n Ez\f[default]_")
-										.squish(squishH=4,squishV=1)
 										.align(alignH="middle"),
 								"50%"),
 							),
@@ -73,7 +72,6 @@ def main(cnv):
 				.squish(squishH=3,squishV=1) # make the text ridgid by solidly defining its size
 				.align(alignH="right",alignV="bottom"), # align the text to the bottom right
 			tui.Text("`Press *f* to change my face btw`")
-				.squish(squishH=29,squishV=1) # make the text ridgid by solidly defining its size
 				.align(alignH="left",alignV="bottom") # align the text to the bottom right
 		).box(line.thinC,style="\f[34]",label="*Random trash*") # Add a box around everything, with color 34/255 and a label
 		 .squish(squishH=70,squishV=30)

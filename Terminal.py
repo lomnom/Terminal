@@ -275,7 +275,7 @@ class Stopwatch: #stopwatch, works like one
 		self.started=-1
 		self.totalElapsed=0
 
-	def time(self):
+	def time(self): # in seconds
 		if self.started!=-1:
 			return self.totalElapsed+(timecounter()-self.started)
 		else:

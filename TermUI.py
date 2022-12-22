@@ -129,7 +129,7 @@ class MultiContainer(Container): # children have to implement allocPos, allocSz 
 # parent class of all containers that have customisable element allocation 
 class AllocatedMContainer(MultiContainer):
 	allocations=None
-	fixed=0
+	fixed=0 #concrete space constraint (all the allocations specified as absolute numbers)
 	def setChild(self,child,allocation,index): # allocation can be in "int" or "float%"
 		if index<=len(self.children):          
 			self.allocations.append(allocation)
@@ -188,55 +188,72 @@ class ZStack(MultiContainer): # layers all children above each other
 	def allocSz(self,child):
 		return self.parent.allocSz(self)
 
+	def size(self):
+		heightM,widthM=(0,0)
+		for child in children:
+			height,width=child.size()
+			if height>heightM:
+				heightM=height
+			if width>widthM:
+				widthM=width
+		return (heightM,widthM)
+
 	def render(self,cnv,x,y,ph,pw):
 		for child in self.children:
 			child.render(cnv,x,y,ph,pw)
 
 class Alloc(AllocatedMContainer): # allocates all children in an axis
-	def __init__(self,orientation,*children): # ("vertical"|"horizontal",*(Element,str) -> Alloc
+	def __init__(self,side,*children): # ("vertical"|"horizontal",*(Element,str) -> Alloc
 		self.children=[]
 		self.allocations=[]
-		self.v= orientation=='vertical'
+		self.isVertical = (side=='vertical') #True if vertical, false if horizontal
 		for index,child in enumerate(children):
 			self.setChild(child[0],child[1],index)
 
 	def calcAlloc(self):
-		ra,ca=self.parent.allocSz(self)
-		alloced=ra if self.v else ca
+		rowsA,colsA=self.parent.allocSz(self)
+		alloced=rowsA if self.isVertical else colsA
 		alloced=alloced-self.fixed
 		offset=0
 		allocs=[]
 		for alloc in self.allocations:
 			if alloc[-1]!='%':
-				sz=int(alloc)
-				allocs.append(sz)
+				size=int(alloc) #size allocated to element
+				allocs.append(size)
 			else:
 				percent=float(alloc[:-1])
-				sz=alloced*(percent/100)
-				offset+=sz%1
-				sz=int(sz)
+				size=alloced*(percent/100)
+				offset+=size%1
+				size=int(size)
 				if offset>=1:
-					sz+=1
+					size+=1
 					offset-=1
-				allocs.append(sz)
+				allocs.append(size)
 		return allocs
+
+	@property
+	def ridgid(self):
+		for allocation in self.allocations:
+			if allocation[-1]=="%":
+				return False
+		return True
 
 	def allocPos(self,child):
 		child=self.children.index(child)
 		allocs=self.calcAlloc()[:child]
 		px,py=self.parent.allocPos(self)
-		return (px,py+sum(allocs)) if self.v else (px+sum(allocs),py)
+		return (px,py+sum(allocs)) if self.isVertical else (px+sum(allocs),py)
 
 	def allocSz(self,child):
 		child=self.children.index(child)
-		return (self.calcAlloc()[child],self.parent.allocSz(self)[1]) if self.v else \
+		return (self.calcAlloc()[child],self.parent.allocSz(self)[1]) if self.isVertical else \
 		       (self.parent.allocSz(self)[0],self.calcAlloc()[child])
 
 	def render(self,cnv,x,y,h,w):
 		allocs=self.calcAlloc()
 		for index,child in enumerate(self.children):
 			allocd=allocs[index]
-			if self.v: 
+			if self.isVertical: 
 				child.render(cnv,x,y,allocd,w)
 				y+=allocd
 			else: 

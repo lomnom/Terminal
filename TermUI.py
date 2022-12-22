@@ -52,7 +52,7 @@ blocks={
 # parent class of all elements
 class Element: # children must implement render
 	index=None
-	ridgid=False #Has a fixed size
+	ridgid=False #Will not expand to fill space
 	parent=None
 	def size(self): # () -> (rows,cols)
 		return self.parent.allocSz(self)
@@ -231,13 +231,6 @@ class Alloc(AllocatedMContainer): # allocates all children in an axis
 				allocs.append(size)
 		return allocs
 
-	@property
-	def ridgid(self):
-		for allocation in self.allocations:
-			if allocation[-1]=="%":
-				return False
-		return True
-
 	def allocPos(self,child):
 		child=self.children.index(child)
 		allocs=self.calcAlloc()[:child]
@@ -293,7 +286,7 @@ class Squisher(Container): # confine child to set size
 		self.setChild(child)
 		self.squishH=squishH
 		self.squishV=squishV
-		self.ridgid=squishH is not None and squishV is not None
+		self.ridgid=(squishH is not None) and (squishV is not None)
 
 	def size(self):
 		if not self.ridgid:
@@ -333,14 +326,22 @@ class Padding(Container): # adds padding to allocated space
 			ph-(self.top+self.bottom),pw-(self.left+self.right)
 		)
 
+	@property
+	def ridgid(self):
+		return self.child.ridgid
+
 Element.extensions['pad']=lambda self: lambda *args,**kwargs: Padding(self,*args,**kwargs)
 
 class Nothing(Element):
-	def __init__(self):
+	ridgid=True
+	def __init__(self,height=0,width=0):
 		pass
 
 	def render(self,*_):
 		pass
+
+	def size():
+		return (self.height,self.width)
 
 class Box(Container): # adds box within allocated space, style can be all special formatting, eg '*^'
 	def __init__(self,child,lines,style="",label=None): # (Element, LineSet, style=str, label=str)

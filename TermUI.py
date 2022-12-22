@@ -160,11 +160,18 @@ class ElementSwitcher(MultiContainer): # shows child no. self.visible
 			self.setChild(child,index)
 		self.visible=visible
 
+	@property
+	def ridgid(self):
+		return self.children[self.visible].ridgid
+
 	def allocPos(self,child):
 		return self.parent.allocPos(self)
 
 	def allocSz(self,child):
 		return self.parent.allocSz(self)
+
+	def size(self):
+		return self.children[self.visible].size()
 
 	def render(self,cnv,x,y,ph,pw):
 		self.children[self.visible].render(cnv,x,y,ph,pw)
@@ -243,7 +250,7 @@ def HAlloc(*args,**kwargs):
 	return Alloc('horizontal',*args,**kwargs)
 
 class Root(Container): # container that is the grandparent of everything, projects onto canvas
-	ridgid=(True,True)
+	ridgid=True
 	def __init__(self,canvas,child):
 		self.canvas=canvas
 		self.setChild(child)

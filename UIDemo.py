@@ -17,25 +17,26 @@ def main(cnv):
 	)
 	root=tui.Root(
 		cnv,
-		tui.ZStack( # this stack layers the smily on line 42 above the horizontal stack below
+		tui.ZStack( # this stack layers the smiley on line 42 above the horizontal stack below
 			tui.HAlloc( # Horizontal allocator
 				(
 					tui.VAlloc( # Vertical allocator
 						(
 							tui.Text("*_HELLO WORLD_*") # you can use markdown-style * and _
+								.expandTo(tui.Alloc,offX=-2,offY=-2)
 								.box(line.double), # fill the space allocated to this with a double-lined box
 						"7"), # 7 rows allocated to this
 						(
 							quitText
-								.box(line.thick)
-								.pad(top=1,left=2,bottom=1,right=3), # add padding around the box that fills allocated space
+								.pad(top=1,left=2,bottom=1,right=3)
+								.box(line.thick),
 						"40%") # 40% of space excluding fixed allocations (such as the 7 above)
 					),
 				"50%"),
 				(
 					tui.Text("^Lmao^") # ^ for blinking text
-						.box(line.thinD)
-						.squish(squishV=10), # squish the allocated space to 10 rows, stopping the box from stretching all the way down.
+						.expand(expandV=10) # squish the allocated space to 10 rows, stopping the box from stretching all the way down.
+						.box(line.dotted),
 				"5"),
 				(
 					tui.Nothing(),
@@ -44,9 +45,9 @@ def main(cnv):
 					tui.VAlloc(
 						(
 							keyText
-								.align(alignH="middle")
+								.expand(expandV=3)
 								.box(line.thin,style="\f[104]")
-								.squish(squishV=3),
+								.align(alignH="middle"),
 						"25%"),
 						(
 							tui.HAlloc(
@@ -55,17 +56,14 @@ def main(cnv):
 										.align(alignH="middle"),
 								"50%"),
 								(
-									tui.Seperator("vertical",line.thinD.v),
+									tui.Seperator("vertical",line.dotted.v),
 								"1"),
 								(
 									tui.Text("_\f[82]|_This_|\n Ez\f[default]_")
 										.align(alignH="middle"),
 								"50%"),
-							),
-						"50%"),
-						(
-							tui.Nothing(),
-						"25%")
+							).pad(top=1,bottom=2),
+						"75%")
 					),
 				"50%")
 			),
@@ -75,9 +73,11 @@ def main(cnv):
 			tui.Text("`Press *f* to change my face btw`")
 				.align(alignH="left",alignV="bottom") # align the text to the bottom right
 			,
-		).box(line.thinC,style="\f[34]",label="*Random trash*") # Add a box around everything, with color 34/255 and a label
-		 .bg(233)
-		 .squish(squishH=70,squishV=30)
+		).expand(expandH=70,expandV=30)
+		 .box(line.curvy,style="\f[34]",label="*Random trash*") # Add a box around everything, with color 34/255 and a label
+		 # .alter({
+		 # 	"bcolor":lambda chr,x,y: 253
+		 # })
 		 .align(alignH="middle",alignV="middle") # Align ridgid box to middle of screen
 	)
 	root.render() # update what is shown on screen

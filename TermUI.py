@@ -15,10 +15,10 @@ class LineSet:
 class Lines:
 	thin=LineSet('─','│','┌','┐','└','┘')
 	thick=LineSet('━','┃','┏','┓','┗','┛')
-	thinD=LineSet('┄','┊','┌','┐','└','┘')
-	thickD=LineSet('┅','┋','┏','┓','┗','┛')
+	dotted=LineSet('┄','┊','┌','┐','└','┘')
+	fatDotted=LineSet('┅','┋','┏','┓','┗','┛')
 	double=LineSet('═',"║","╔","╗","╚","╝")
-	thinC=LineSet('─','│','╭','╮','╰','╯')
+	curvy=LineSet('─','│','╭','╮','╰','╯')
 
 class Gradients:
 	block=[" ","░","▒","▓","█"]
@@ -52,10 +52,11 @@ blocks={
 # parent class of all elements
 class Element: # children must implement render
 	index=None
-	ridgid=False #Will not expand to fill space
+	ridgid=True #Will not expand to fill space
 	parent=None
 	def size(self): # () -> (rows,cols)
-		return self.parent.allocSz(self)
+		# return self.parent.allocSz(self)
+		raise NotImplementedError("THIS IS NEEDED LOL")
 
 	def render(self,cnv,x,y,h,w): # (canvas,render x,render y,allocHeight,width) -> None
 		raise NotImplementedError 
@@ -129,6 +130,7 @@ class MultiContainer(Container): # children have to implement allocPos, allocSz 
 # parent class of all containers that have customisable element allocation 
 class AllocatedMContainer(MultiContainer):
 	allocations=None
+	isVertical=None
 	fixed=0 #concrete space constraint (all the allocations specified as absolute numbers)
 	def setChild(self,child,allocation,index): # allocation can be in "int" or "float%"
 		if index<=len(self.children):          
@@ -137,7 +139,12 @@ class AllocatedMContainer(MultiContainer):
 			if self.allocations[index][-1]!='%':
 				self.fixed-=int(self.allocations[index])
 			self.allocations[index]=allocation
-		if allocation[-1]!='%':
+		if allocation=='@':
+			if self.isVertical:
+				self.fixed+=child.size()[0]
+			else:
+				self.fixed+=child.size()[1]
+		elif allocation[-1]!="%":
 			self.fixed+=int(allocation)
 		return super().setChild(child,index)
 
@@ -189,18 +196,28 @@ class ZStack(MultiContainer): # layers all children above each other
 		return self.parent.allocSz(self)
 
 	def size(self):
-		heightM,widthM=(0,0)
-		for child in children:
-			height,width=child.size()
-			if height>heightM:
-				heightM=height
-			if width>widthM:
-				widthM=width
-		return (heightM,widthM)
+		if self.ridgid:
+			heightM,widthM=(0,0)
+			for child in self.children:
+				height,width=child.size()
+				if height>heightM:
+					heightM=height
+				if width>widthM:
+					widthM=width
+			return (heightM,widthM)
+		else:
+			return (0,0)
 
 	def render(self,cnv,x,y,ph,pw):
 		for child in self.children:
 			child.render(cnv,x,y,ph,pw)
+
+	@property
+	def ridgid(self):
+		for child in self.children:
+			if not child.ridgid:
+				return False
+		return True
 
 class Alloc(AllocatedMContainer): # allocates all children in an axis
 	def __init__(self,side,*children): # ("vertical"|"horizontal",*(Element,str) -> Alloc
@@ -208,7 +225,22 @@ class Alloc(AllocatedMContainer): # allocates all children in an axis
 		self.allocations=[]
 		self.isVertical = (side=='vertical') #True if vertical, false if horizontal
 		for index,child in enumerate(children):
-			self.setChild(child[0],child[1],index)
+			if type(child) is not tuple:
+				self.setChild(child,"@",index)
+			else:
+				self.setChild(child[0],child[1],index)
+
+	@property
+	def ridgid(self):
+		for child in self.children:
+			if not child.ridgid:
+				return False
+
+		for allocation in self.allocations:
+			if allocation[-1]=="%":
+				return False
+
+		return True
 
 	def calcAlloc(self):
 		rowsA,colsA=self.parent.allocSz(self)
@@ -216,11 +248,8 @@ class Alloc(AllocatedMContainer): # allocates all children in an axis
 		alloced=alloced-self.fixed
 		offset=0
 		allocs=[]
-		for alloc in self.allocations:
-			if alloc[-1]!='%':
-				size=int(alloc) #size allocated to element
-				allocs.append(size)
-			else:
+		for index,alloc in enumerate(self.allocations):
+			if alloc[-1]=='%':
 				percent=float(alloc[:-1])
 				size=alloced*(percent/100)
 				offset+=size%1
@@ -228,6 +257,15 @@ class Alloc(AllocatedMContainer): # allocates all children in an axis
 				if offset>=1:
 					size+=1
 					offset-=1
+				allocs.append(size)
+			elif alloc=="@":
+				child=self.children[index]
+				if self.isVertical:
+					allocs.append(child.size()[0])
+				else:
+					allocs.append(child.size()[1])
+			else:
+				size=int(alloc) #size allocated to element
 				allocs.append(size)
 		return allocs
 
@@ -280,32 +318,79 @@ class Root(Container): # container that is the grandparent of everything, projec
 
 	innerPos=pos
 
-class Squisher(Container): # confine child to set size
-	# (Element,squishH=int (horiz confine),squishV=int (vert confine))
-	def __init__(self,child,squishH=None,squishV=None):
+class Expander(Container): # Expand child to set size
+	# (Element,expandH=int (horiz confine),expandV=int (vert confine))
+	def __init__(self,child,expandH=None,expandV=None):
 		self.setChild(child)
-		self.squishH=squishH
-		self.squishV=squishV
-		self.ridgid=(squishH is not None) and (squishV is not None)
+		self.expandH=expandH
+		self.expandV=expandV
+		self.ridgid = child.ridgid or ((expandH is not None) and (expandV is not None))
 
 	def size(self):
-		if not self.ridgid:
-			ph,pw=self.parent.allocSz(self)
-			return ((ph if not self.squishV else self.squishV),
-			        (pw if not self.squishH else self.squishH))
-		else:
-			return (self.squishV,self.squishH)
+		ch,cw=self.child.size()
+		return ((ch if not self.expandV else self.expandV),
+		        (cw if not self.expandH else self.expandH))
+
+	def innerSize(self):
+		return self.size()
 
 	def render(self,cnv,x,y,ph,pw):
 		self.child.render(
 			cnv,x,y,
-			(ph if not self.squishV else self.squishV),
-			(pw if not self.squishH else self.squishH)
+			(ph if not self.expandV else self.expandV),
+			(pw if not self.expandH else self.expandH)
 		)
 
-# any element can have squish called on it to wrap in squisher
-# Element.squish(squishH=int,squishV=int) -> Squisher(Element)
-Element.extensions['squish']=lambda self: lambda *args,**kwargs: Squisher(self,*args,**kwargs)
+# any element can have expand called on it to wrap in expander
+# Element.expand(expandH=int,expandV=int) -> Expander(Element)
+Element.extensions['expand']=lambda self: lambda *args,**kwargs: Expander(self,*args,**kwargs)
+
+class ExpandTo(Container):
+	ridgid=False
+	def __init__(self,child,destination,depth=0,horiz=True,vert=True,offX=0,offY=0):
+		self.setChild(child)
+		self.destination=destination
+		self.depth=depth
+		self.offX=offX
+		self.offY=offY
+		self.vert=vert
+		self.horiz=horiz
+
+	def fakeParent(self):
+		depth=self.depth
+		parent=self.parent
+		fakeChild=self
+		while parent:
+			if (type(parent) == self.destination):
+				if depth:
+					depth-=1
+				else:
+					break
+			fakeChild=parent
+			parent=parent.parent
+		if not parent:
+			raise FileNotFoundError
+		return (parent,fakeChild)
+
+	def size(self):
+		fakeParent,fakeChild=self.fakeParent()
+		ph,pw=fakeParent.allocSz(fakeChild)
+		ph+=self.offY
+		pw+=self.offX
+		ch,cw=self.child.size()
+		return ((ch if not self.vert else ph),
+		        (cw if not self.horiz else pw))
+
+	def innerSize(self):
+		return self.size()
+
+	def render(self,cnv,x,y,ph,pw):
+		self.child.render(
+			cnv,x,y,
+			*self.innerSize()
+		)
+
+Element.extensions['expandTo']=lambda self: lambda *args,**kwargs: ExpandTo(self,*args,**kwargs)
 
 class Padding(Container): # adds padding to allocated space
 	def __init__(self,child,top=0,bottom=0,left=0,right=0):
@@ -326,6 +411,10 @@ class Padding(Container): # adds padding to allocated space
 			ph-(self.top+self.bottom),pw-(self.left+self.right)
 		)
 
+	def size(self):
+		height,width=self.child.size()
+		return (height+self.top+self.bottom,width+self.left+self.right)
+
 	@property
 	def ridgid(self):
 		return self.child.ridgid
@@ -343,12 +432,14 @@ class Nothing(Element):
 	def size():
 		return (self.height,self.width)
 
-class Box(Container): # adds box within allocated space, style can be all special formatting, eg '*^'
-	def __init__(self,child,lines,style="",label=None): # (Element, LineSet, style=str, label=str)
+class Box(Container): # adds box around child, style can be all special formatting, eg '*^'
+	# (Element, LineSet, style=str, label=str)
+	def __init__(self,child,lines,style="",label=None,labelPos="left"): 
 		self.setChild(child)
 		self.line=lines
 		self.label=label
 		self.style=style
+		self.labelPos=labelPos
 
 	def innerSize(self):
 		ph,pw=self.parent.allocSz(self)
@@ -358,21 +449,31 @@ class Box(Container): # adds box within allocated space, style can be all specia
 		px,py=self.parent.allocPos(self)
 		return (px+1,py+1)
 
+	def size(self):
+		ch,cw=self.child.size()
+		return (ch+2,cw+2)
+
 	def render(self,cnv,x,y,ph,pw):
 		self.child.render(cnv,x+1,y+1,ph-2,pw-2)
+		ch,cw=self.child.size()
 		cnv.cursor.goto(x,y)
 		cnv.sprint(self.style)
 		cnv.print(self.line.tl)
-		cnv.line(self.line.h,pw-2)
+		cnv.line(self.line.h,cw)
 		cnv.print(self.line.tr)
 		cnv.cursor.goto(x,y+1)
-		cnv.line(self.line.v,ph-2,inc=(0,1))
+		cnv.line(self.line.v,ch,inc=(0,1))
 		cnv.print(self.line.bl)
-		cnv.line(self.line.h,pw-2)
+		cnv.line(self.line.h,cw)
 		cnv.print(self.line.br,inc=(0,-1))
-		cnv.line(self.line.v,ph-2,inc=(0,-1))
+		cnv.line(self.line.v,ch,inc=(0,-1))
 		if self.label:
-			cnv.cursor.goto(x+2,y)
+			if self.labelPos=="left":
+				cnv.cursor.goto(x+1,y)
+			elif self.labelPos=="right":
+				cnv.cursor.goto(x+cw-len(self.label) -1,y)
+			elif self.labelPos=="middle":
+				cnv.cursor.goto(int(x+(cw-len(self.label))/2 ),y)
 			cnv.print(self.line.tr)
 			cnv.cursor.nostyle()
 			cnv.sprint(self.label)
@@ -383,6 +484,7 @@ class Box(Container): # adds box within allocated space, style can be all specia
 Element.extensions['box']=lambda self: lambda *args,**kwargs: Box(self,*args,**kwargs)
 
 class Aligner(Container): # aligns child, (Element,alignH="right"|"middle",alignV="bottom"|'middle')
+	ridgid=False
 	def __init__(self,child,alignH=None,alignV=False):
 		assert(child.ridgid)
 		self.setChild(child)
@@ -392,7 +494,7 @@ class Aligner(Container): # aligns child, (Element,alignH="right"|"middle",align
 	def innerPos(self):
 		ch,cw=self.child.size()
 		xs,ys=self.pos()
-		sh,sw=self.size()
+		sh,sw=self.parent.allocSz(self)
 		if self.alignH:
 			if self.alignH=="right":
 				xs+=sw-cw
@@ -405,9 +507,18 @@ class Aligner(Container): # aligns child, (Element,alignH="right"|"middle",align
 				ys+=(sh-ch)//2
 		return (xs,ys)
 
+	def size(self):
+		height,width=(0,0)
+		ch,cw=self.child.size()
+		if not self.alignH:
+			width=cw
+		if not self.alignV:
+			height=ch
+		return (height,width)
+
 	def render(self,cnv,x,y,ph,pw):
 		ch,cw=self.child.size()
-		self.child.render(cnv,*self.innerPos(),ch,cw)
+		self.child.render(cnv,*self.innerPos(),ph,pw)
 
 Element.extensions['align']=lambda self: lambda *args,**kwargs: Aligner(self,*args,**kwargs)
 
@@ -418,6 +529,12 @@ class Wrapper(Container):
 
 	def render(self,*args):
 		self.visible and self.child.render(*args)
+
+	def size(self):
+		if self.visible:
+			return self.child.size()
+		else:
+			return (0,0)
 
 Element.extensions['wrap']=lambda self: lambda *args,**kwargs: Wrapper(self,*args,**kwargs)
 
@@ -437,6 +554,7 @@ class Text(Element): # just text
 		self.raw and cnv.print(self.text,inc=self.inc)
 
 class Seperator(Element):
+	ridgid=False
 	def __init__(self,orientation,character):
 		self.v= orientation=='vertical'
 		self.character=character
@@ -449,32 +567,44 @@ class Seperator(Element):
 			cnv.line(self.character,pw)
 
 	def size(self):
-		ph,pw=self.parent.allocSz(self)
-		return (ph,1) if self.v else (1,pw)
+		return (0,1) if self.v else (1,0)
 
 class CanvasDisplay(Element):
-	def __init__(self,canvas,x,y): #x and y are canvas coordinates of rendered top left
+	def __init__(self,canvas,height,width,x=0,y=0): #x and y are canvas coordinates of rendered top left
 		self.canvas=canvas
 		self.x=x
 		self.y=y
+		self.height=height
+		self.width=width
+
+	def size(self):
+		return (self.height,self.width)
 
 	def render(self,cnv,x,y,ph,pw):
-		self.canvas.render(cnv,x,y,ph,pw,self.x,self.y)
+		self.canvas.render(cnv,x,y,self.height,self.width,self.x,self.y)
 
-class BgOverlay(Container):
-	def __init__(self,color,child,prio=True):
-		if color in tc.h256colors:
-			self.color=tc.h256colors[color]
-		else:
-			self.color=color
+class Mutate(Container): #Run a function on every character
+	def __init__(self,trans,child,before=True):
+		self.trans=trans #the function
 		self.setChild(child)
-		self.prio=prio
+		self.before=before
+
+	def size(self):
+		return self.child.size()
 
 	def render(self,cnv,x,y,ph,pw):
-		self.prio and self.child.render(cnv,x,y,ph,pw)
-		for row in cnv.matrix[y:y+ph]:
-			for char in row[x:x+pw]:
-				char.bcolor=self.color
-		self.prio or self.child.render(cnv,x,y,ph,pw)
+		self.before and self.child.render(cnv,x,y,ph,pw)
+		ch,cw=self.child.size()
+		for chrY in range(y,y+ch):
+			for chrX in range(x,x+cw):
+				self.trans(cnv.matrix[chrY][chrX],chrX,chrY)
+		self.before or self.child.render(cnv,x,y,ph,pw)
 
-Element.extensions['bg']=lambda self: lambda *args,**kwargs: BgOverlay(*args,self,**kwargs)
+def multiAlter(obj,alterations,args=()):
+	for alteration in alterations:
+		value=alterations[alteration]
+		setattr(obj,alteration,value(obj,*args))
+
+Element.extensions['alter']=lambda self: lambda alterations,**kwargs: Mutate(
+	lambda obj,x,y: multiAlter(obj,alterations,args=(x,y),**kwargs),self
+)

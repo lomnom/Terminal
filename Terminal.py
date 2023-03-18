@@ -68,17 +68,16 @@ from threading import Lock as lock
 from time import sleep as wait
 from random import randint as random
 from random import choice 
-import termios, sys
-import select
+import termios
 fd=stdin.fileno()
 
-def sfprint(*stuff):
+def sfprint(*stuff): # print without newline, without flushing
 	if len(stuff)>1:
 		stdout.write(" ".join(stuff))
 	else:
 		stdout.write(stuff[0])
 
-def fprint(*stuff):
+def fprint(*stuff): # print without newline, with flushing
 	if len(stuff)>1:
 		stdout.write(" ".join(stuff))
 	else:
@@ -129,6 +128,21 @@ def ctrlc():
 	ctrlc[3]=ctrlc[3] | termios.ISIG
 	termios.tcsetattr(fd,termios.TCSADRAIN,ctrlc)
 
+stdinBlocking=True
+def nbStdin(): #non-blocking stdin
+	global stdinBlocking
+	nbStdin=termios.tcgetattr(fd)
+	nbStdin[6][termios.VMIN] = 0x0  
+	termios.tcsetattr(fd,termios.TCSADRAIN,nbStdin)
+	stdinBlocking=False
+
+def bStdin(): #non-blocking stdin
+	global stdinBlocking
+	nbStdin=termios.tcgetattr(fd)
+	nbStdin[6][termios.VMIN] = 0x1  
+	termios.tcsetattr(fd,termios.TCSADRAIN,nbStdin)
+	stdinBlockingTrue=True
+
 def canvas(): # flip to program terminal buffer, leave the console
 	fprint(savecursor+hidecursor+canvasscreen)
 
@@ -175,26 +189,29 @@ def proccessTermChar(char):
 	else: 
 		return char
 
-def stdinempty(): # check if there is data to read from stdin
-	return select.select([sys.stdin,],[],[],0.0)[0]==[]
-
-def readall(blocking=True): #if its one big write (eg. arrow key), it will onnly get first char :(
-	data=stdin.read(1) if blocking else ""
-	while not stdinempty():
-		data+=stdin.read(1)
+def readall(blocking=False): #if its one big write (eg. arrow key), it will onnly get first char :(
+	assert(not stdinBlocking)
+	data=stdin.read(1)
+	while blocking and not data:
+		data=stdin.read(1)
+	while True:
+		char=stdin.read(1)
+		if not char:
+			break
+		data+=char
 	return data
 
 arrowChars={"A":"up","B":"down","C":"right","D":"left"}
 arrowModifyers={"2":"shift","3":"option","4":"shift option","5":"ctrl"}
 # supports special keys like ctrl z and shift up
-def keys(): # yields all keystrokes, call raw() before to not require pressing enter
+# if leave is true, terminate after processing all input
+def keys(leave=False): # yields all keystrokes, call raw() before to not require pressing enter
 	while True:
-		data=readall()
+		data=readall(blocking=not leave)
 		while data!="":
 			if data[0]=='\033' and len(data)>1 and data[1]=='[': #arrow key?
 				data=data[2:]
 				if data.startswith("1"):
-					data+=sys.stdin.read(3)
 					data=data[2:]
 					if data[0] in arrowModifyers:
 						modifyer=arrowModifyers[data[0]]
@@ -205,11 +222,11 @@ def keys(): # yields all keystrokes, call raw() before to not require pressing e
 				elif data[0] in arrowChars:
 					yield arrowChars[data[0]]
 					data=data[1:]
-			elif data[0]=='\033' and len(data)==1:
-				data+=sys.stdin.read(2)
 			else:
 				yield proccessTermChar(data[0])
 				data=data[1:]
+		if leave: 
+			return
 
 class Action:
 	def __init__(self,func,*args,**kwargs):
@@ -228,23 +245,22 @@ class KeyHandler: # asynchronous keystroke handler
 		self.delay=0.01
 
 	def _handle(self):
-		for key in keys():
-			try:
-				action=self.actions[key]
-			except KeyError:
+		while not self.thread==None:
+			sleep(self.delay) # poll for input at self.delay rate
+			for key in keys(leave=True):
 				try:
-					action=self.actions["default"]
-					action=Action(action.func,key,*action.args,**action.kwargs)
+					action=self.actions[key]
 				except KeyError:
-					continue
-			self.tasks+=[[key,thread(target=action.run)]]
-			self.tasks[-1][1].start()
-			for task in reversed(range(len(self.tasks))):
-				if not self.tasks[task][1].is_alive():
-					self.tasks.pop(task)
-			wait(self.delay) #timeframe where key handler can be killed (sketch 1000)
-			if self.thread==None:
-				break
+					try:
+						action=self.actions["default"]
+						action=Action(action.func,key,*action.args,**action.kwargs)
+					except KeyError:
+						continue
+				self.tasks+=[[key,thread(target=action.run)]]
+				self.tasks[-1][1].start()
+				for task in reversed(range(len(self.tasks))):
+					if not self.tasks[task][1].is_alive():
+						self.tasks.pop(task)
 
 	def handle(self): # call to begin tracking strokes
 		if self.thread==None:

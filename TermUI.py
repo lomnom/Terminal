@@ -1,5 +1,7 @@
 import TermCanvas as tc
 import Terminal as trm
+from time import sleep
+from threading import Thread as thread
 
 #top bottom left right
 #vertical, horizontal
@@ -12,7 +14,66 @@ class LineSet:
 		self.br=br
 		self.bl=bl
 
-class Lines:
+class sched:
+	secondsLater=0
+	framesLater=1
+	frame=2
+
+class Frames:
+	def __init__(self,fps,root):
+		self.stopwatch=trm.Stopwatch()
+		self.fps=fps
+		self.running=True
+		self.frame=1
+		self.requested={}
+		self.root=root
+
+	@property
+	def delay(self):
+		return 1/self.fps
+
+	def schedule(self,value,variety,callback=None):
+		frame=None
+		if variety==sched.secondsLater:
+			frame=self.frame+value*self.fps
+		elif variety==sched.framesLater:
+			frame=self.frame+value
+		elif variety==sched.frame:
+			frame=value
+		else:
+			raise ValueError("Invalid schedule variety")
+
+		if frame not in self.requested:
+			self.requested[frame]=[]
+
+		callbacks=self.requested[frame]
+		if callback:
+			callbacks.append(callback)
+
+	def run(self):
+		self.stopwatch.start()
+
+		while self.running and not tc.DIED:
+			sleep(self.delay*self.frame-self.stopwatch.time())
+			if self.frame in self.requested:
+				callbacks=self.requested[self.frame]
+				for callback in callbacks:
+					callback(self)
+				self.root.render()
+				del self.requested[self.frame]
+			self.frame+=1
+
+		self.running=False
+		self.stopwatch.stop()
+
+	def start(self):
+		self.thread=thread(target=self.run)
+		self.thread.start()
+
+	def stop(self):
+		self.running=False
+
+class lines:
 	thin=LineSet('─','│','┌','┐','└','┘')
 	thick=LineSet('━','┃','┏','┓','┗','┛')
 	dotted=LineSet('┄','┊','┌','┐','└','┘')
@@ -20,10 +81,16 @@ class Lines:
 	double=LineSet('═',"║","╔","╗","╚","╝")
 	curvy=LineSet('─','│','╭','╮','╰','╯')
 
-class Gradients:
+class gradients:
 	block=[" ","░","▒","▓","█"]
 	horizbar=[" ","▏","▎","▍","▌","▋","▊","▉","█"]
 	vertbar=[" ","▁","▂","▃","▄","▅","▆","▇","█"]
+
+class block:
+	topLeft=0b1000
+	topRight=0b0100
+	bottomLeft=0b0010
+	bottomRight=0b0001
 
 blocks={
 	# 0bXXXX
@@ -51,18 +118,13 @@ blocks={
 
 # parent class of all elements
 class Element: # children must implement render
-	index=None
-	ridgid=True #Will not expand to fill space
 	parent=None
-	def size(self): # () -> (rows,cols)
-		# return self.parent.allocSz(self)
-		raise NotImplementedError("THIS IS NEEDED LOL")
+
+	def size(self): # () -> (rows,cols), None for any value of unsure (or return minimum)
+		raise NotImplementedError(f"THIS IS NEEDED LOL (type {type(self)} has no size function) ")
 
 	def render(self,cnv,x,y,h,w): # (canvas,render x,render y,allocHeight,width) -> None
 		raise NotImplementedError 
-
-	def pos(self): # -> (x,y)
-		return self.parent.allocPos(self)
 
 	def adopted(self,parent): # called when parent set
 		self.parent=parent
@@ -77,9 +139,6 @@ class Element: # children must implement render
 # parent class of all containers
 class Container(Element): # children only have to implement render()
 	child=None
-	def innerSize(self): # size of inner cavity. () -> (rows,cols)
-		return self.size()
-
 	def setChild(self,child):
 		if self.child is not None:
 			self.child.disowned()
@@ -90,19 +149,8 @@ class Container(Element): # children only have to implement render()
 		self.child.disowned()
 		self.child=None
 
-	def innerPos(self): # start of inner cavity () -> (x,y)
-		return self.pos()
-
-	def allocPos(self,child): # position allocated to child (Element) -> (x,y)
-		assert(child is self.child)
-		return self.innerPos()
-
-	def allocSz(self,child): # area allocated to child () -> (rows,cols)
-		assert(child is self.child)
-		return self.innerSize()
-
 # parent class of all containers with multiple children
-class MultiContainer(Container): # children have to implement allocPos, allocSz and render()
+class MultiContainer(Container): # children have to implement render()
 	children=None
 	def setChild(self,child,index):  # (Element,index), where index is position of child
 		if index<=len(self.children):
@@ -118,47 +166,8 @@ class MultiContainer(Container): # children have to implement allocPos, allocSz 
 		self.children.remove(child)
 		return child
 
-	def allocPos(self,child):
-		raise NotImplementedError
-
-	def allocSz(self,child):
-		raise NotImplementedError
-
 	def __len__(self):
 		return len(self.children)
-
-# parent class of all containers that have customisable element allocation 
-class AllocatedMContainer(MultiContainer):
-	allocations=None
-	isVertical=None
-	fixed=0 #concrete space constraint (all the allocations specified as absolute numbers)
-	def setChild(self,child,allocation,index): # allocation can be in "int" or "float%"
-		if index<=len(self.children):          
-			self.allocations.append(allocation)
-		else:
-			if self.allocations[index][-1]!='%':
-				self.fixed-=int(self.allocations[index])
-			self.allocations[index]=allocation
-		if allocation=='@':
-			if self.isVertical:
-				self.fixed+=child.size()[0]
-			else:
-				self.fixed+=child.size()[1]
-		elif allocation[-1]!="%":
-			self.fixed+=int(allocation)
-		return super().setChild(child,index)
-
-	updateChild=setChild
-
-	def disownChild(self,child):
-		index=self.children.index(child)
-		if self.allocations[index][-1]!='%':
-			self.fixed-=int(self.allocations[index])
-		self.allocations.pop(index)
-		return super().disownChild(child)
-
-	def calcAlloc(self): # get allocated areas for all children () -> [int]
-		raise NotImplementedError
 
 class ElementSwitcher(MultiContainer): # shows child no. self.visible
 	def __init__(self,*children,visible=0):
@@ -166,16 +175,6 @@ class ElementSwitcher(MultiContainer): # shows child no. self.visible
 		for index,child in enumerate(children):
 			self.setChild(child,index)
 		self.visible=visible
-
-	@property
-	def ridgid(self):
-		return self.children[self.visible].ridgid
-
-	def allocPos(self,child):
-		return self.parent.allocPos(self)
-
-	def allocSz(self,child):
-		return self.parent.allocSz(self)
 
 	def size(self):
 		return self.children[self.visible].size()
@@ -189,134 +188,91 @@ class ZStack(MultiContainer): # layers all children above each other
 		for index,child in enumerate(children):
 			self.setChild(child,index)
 
-	def allocPos(self,child):
-		return self.parent.allocPos(self)
-
-	def allocSz(self,child):
-		return self.parent.allocSz(self)
-
 	def size(self):
-		if self.ridgid:
-			heightM,widthM=(0,0)
-			for child in self.children:
-				height,width=child.size()
-				if height>heightM:
-					heightM=height
-				if width>widthM:
-					widthM=width
-			return (heightM,widthM)
-		else:
-			return (0,0)
+		heightM,widthM=(0,0)
+		for child in self.children:
+			height,width=child.size()
+			if height==None or (height>heightM and heightM!=None):
+				heightM=height
+			if width==None or (width>widthM and widthM!=None):
+				widthM=width
+		return (heightM,widthM)
 
 	def render(self,cnv,x,y,ph,pw):
 		for child in self.children:
 			child.render(cnv,x,y,ph,pw)
 
-	@property
-	def ridgid(self):
-		for child in self.children:
-			if not child.ridgid:
-				return False
-		return True
+# class Alloc(MultiContainer): # percentages, absolutes and auto
 
-class Alloc(AllocatedMContainer): # allocates all children in an axis
-	def __init__(self,side,*children): # ("vertical"|"horizontal",*(Element,str) -> Alloc
+# def VAlloc(*args,**kwargs):
+# 	return Alloc('vertical',*args,**kwargs)
+
+# def HAlloc(*args,**kwargs):
+# 	return Alloc('horizontal',*args,**kwargs)
+
+class Stack(MultiContainer):
+	def __init__(self,axis,*children):
 		self.children=[]
-		self.allocations=[]
-		self.isVertical = (side=='vertical') #True if vertical, false if horizontal
+		assert(axis=="vertical" or axis=="horizontal")
 		for index,child in enumerate(children):
-			if type(child) is not tuple:
-				self.setChild(child,"@",index)
-			else:
-				self.setChild(child[0],child[1],index)
+			self.setChild(child,index)
+		self.vertical=(axis=='vertical')
 
-	@property
-	def ridgid(self):
-		for child in self.children:
-			if not child.ridgid:
-				return False
-
-		for allocation in self.allocations:
-			if allocation[-1]=="%":
-				return False
-
-		return True
-
-	def calcAlloc(self):
-		rowsA,colsA=self.parent.allocSz(self)
-		alloced=rowsA if self.isVertical else colsA
-		alloced=alloced-self.fixed
+	def render(self,cnv,x,y,ph,pw):
 		offset=0
-		allocs=[]
-		for index,alloc in enumerate(self.allocations):
-			if alloc[-1]=='%':
-				percent=float(alloc[:-1])
-				size=alloced*(percent/100)
-				offset+=size%1
-				size=int(size)
-				if offset>=1:
-					size+=1
-					offset-=1
-				allocs.append(size)
-			elif alloc=="@":
-				child=self.children[index]
-				if self.isVertical:
-					allocs.append(child.size()[0])
-				else:
-					allocs.append(child.size()[1])
-			else:
-				size=int(alloc) #size allocated to element
-				allocs.append(size)
-		return allocs
+		if self.vertical:
+			for child in self.children:
+				height=child.size()[0]
+				child.render(cnv,x,y+offset,height,pw)
+				offset+=height
+		else:
+			for child in self.children:
+				width=child.size()[1]
+				child.render(cnv,x+offset,y,ph,width)
+				offset+=width
 
-	def allocPos(self,child):
-		child=self.children.index(child)
-		allocs=self.calcAlloc()[:child]
-		px,py=self.parent.allocPos(self)
-		return (px,py+sum(allocs)) if self.isVertical else (px+sum(allocs),py)
+	def size(self):
+		stacked=0
+		if self.vertical:
+			maxWidth=0
+			for child in self.children:
+				childSize=child.size()
+				stacked+=childSize[0]
+				if childSize[1]>maxWidth:
+					maxWidth=childSize[1]
+			return (stacked,maxWidth)
+		else:
+			maxHeight=0
+			for child in self.children:
+				childSize=child.size()
+				stacked+=childSize[1]
+				if childSize[0]>maxHeight:
+					maxHeight=childSize[0]
+			return (maxHeight,stacked)
 
-	def allocSz(self,child):
-		child=self.children.index(child)
-		return (self.calcAlloc()[child],self.parent.allocSz(self)[1]) if self.isVertical else \
-		       (self.parent.allocSz(self)[0],self.calcAlloc()[child])
+def VStack(*args,**kwargs):
+	return Stack('vertical',*args,**kwargs)
 
-	def render(self,cnv,x,y,h,w):
-		allocs=self.calcAlloc()
-		for index,child in enumerate(self.children):
-			allocd=allocs[index]
-			if self.isVertical: 
-				child.render(cnv,x,y,allocd,w)
-				y+=allocd
-			else: 
-				child.render(cnv,x,y,h,allocd)
-				x+=allocd
-
-def VAlloc(*args,**kwargs):
-	return Alloc('vertical',*args,**kwargs)
-
-def HAlloc(*args,**kwargs):
-	return Alloc('horizontal',*args,**kwargs)
+def HStack(*args,**kwargs):
+	return Stack('horizontal',*args,**kwargs)
 
 class Root(Container): # container that is the grandparent of everything, projects onto canvas
-	ridgid=True
-	def __init__(self,canvas,child):
+	def __init__(self,canvas,child,fps=30,run=True):
 		self.canvas=canvas
 		self.setChild(child)
+		self.frames=Frames(fps,self)
+		run and self.run()
+
+	def run(self):
+		self.frames.start()
 
 	def size(self):
 		return (trm.rows,trm.columns)
-
-	innerSize=size
 
 	def render(self):
 		self.canvas.clear()
 		self.child.render(self.canvas,0,0,trm.rows,trm.columns)
 		self.canvas.render()
-
-	def pos(self):
-		return (0,0)
-
-	innerPos=pos
 
 class Expander(Container): # Expand child to set size
 	# (Element,expandH=int (horiz confine),expandV=int (vert confine))
@@ -324,15 +280,11 @@ class Expander(Container): # Expand child to set size
 		self.setChild(child)
 		self.expandH=expandH
 		self.expandV=expandV
-		self.ridgid = child.ridgid or ((expandH is not None) and (expandV is not None))
 
 	def size(self):
 		ch,cw=self.child.size()
 		return ((ch if not self.expandV else self.expandV),
 		        (cw if not self.expandH else self.expandH))
-
-	def innerSize(self):
-		return self.size()
 
 	def render(self,cnv,x,y,ph,pw):
 		self.child.render(
@@ -345,69 +297,14 @@ class Expander(Container): # Expand child to set size
 # Element.expand(expandH=int,expandV=int) -> Expander(Element)
 Element.extensions['expand']=lambda self: lambda *args,**kwargs: Expander(self,*args,**kwargs)
 
-class ExpandTo(Container):
-	ridgid=False
-	def __init__(self,child,destination,depth=0,horiz=True,vert=True,offX=0,offY=0):
-		self.setChild(child)
-		self.destination=destination
-		self.depth=depth
-		self.offX=offX
-		self.offY=offY
-		self.vert=vert
-		self.horiz=horiz
-
-	def fakeParent(self):
-		depth=self.depth
-		parent=self.parent
-		fakeChild=self
-		while parent:
-			if (type(parent) == self.destination):
-				if depth:
-					depth-=1
-				else:
-					break
-			fakeChild=parent
-			parent=parent.parent
-		if not parent:
-			raise FileNotFoundError
-		return (parent,fakeChild)
-
-	def size(self):
-		fakeParent,fakeChild=self.fakeParent()
-		ph,pw=fakeParent.allocSz(fakeChild)
-		ph+=self.offY
-		pw+=self.offX
-		ch,cw=self.child.size()
-		return ((ch if not self.vert else ph),
-		        (cw if not self.horiz else pw))
-
-	def innerSize(self):
-		return self.size()
-
-	def render(self,cnv,x,y,ph,pw):
-		self.child.render(
-			cnv,x,y,
-			*self.innerSize()
-		)
-
-Element.extensions['expandTo']=lambda self: lambda *args,**kwargs: ExpandTo(self,*args,**kwargs)
-
 class Padding(Container): # adds padding to allocated space
 	def __init__(self,child,top=0,bottom=0,left=0,right=0):
 		self.setChild(child)
 		self.top,self.bottom,self.left,self.right=top,bottom,left,right
 
-	def innerSize(self):
-		ph,pw=self.parent.allocSz(self)
-		return (ph-(self.top+self.bottom),pw-(self.left+self.right))
-
-	def innerPos(self):
-		px,py=self.parent.allocPos(self)
-		return (px+self.left,py+self.top)
-
 	def render(self,cnv,x,y,ph,pw):
 		self.child.render(
-			cnv,*self.innerPos(),
+			cnv,x+self.left,y+self.top,
 			ph-(self.top+self.bottom),pw-(self.left+self.right)
 		)
 
@@ -415,21 +312,17 @@ class Padding(Container): # adds padding to allocated space
 		height,width=self.child.size()
 		return (height+self.top+self.bottom,width+self.left+self.right)
 
-	@property
-	def ridgid(self):
-		return self.child.ridgid
-
 Element.extensions['pad']=lambda self: lambda *args,**kwargs: Padding(self,*args,**kwargs)
 
 class Nothing(Element):
-	ridgid=True
 	def __init__(self,height=0,width=0):
-		pass
+		self.height=height
+		self.width=width
 
 	def render(self,*_):
 		pass
 
-	def size():
+	def size(self):
 		return (self.height,self.width)
 
 class Box(Container): # adds box around child, style can be all special formatting, eg '*^'
@@ -440,14 +333,6 @@ class Box(Container): # adds box around child, style can be all special formatti
 		self.label=label
 		self.style=style
 		self.labelPos=labelPos
-
-	def innerSize(self):
-		ph,pw=self.parent.allocSz(self)
-		return (ph-2,pw-2)
-
-	def innerPos(self):
-		px,py=self.parent.allocPos(self)
-		return (px+1,py+1)
 
 	def size(self):
 		ch,cw=self.child.size()
@@ -484,41 +369,31 @@ class Box(Container): # adds box around child, style can be all special formatti
 Element.extensions['box']=lambda self: lambda *args,**kwargs: Box(self,*args,**kwargs)
 
 class Aligner(Container): # aligns child, (Element,alignH="right"|"middle",alignV="bottom"|'middle')
-	ridgid=False
 	def __init__(self,child,alignH=None,alignV=False):
-		assert(child.ridgid)
 		self.setChild(child)
 		self.alignH=alignH
 		self.alignV=alignV
 
-	def innerPos(self):
-		ch,cw=self.child.size()
-		xs,ys=self.pos()
-		sh,sw=self.parent.allocSz(self)
-		if self.alignH:
-			if self.alignH=="right":
-				xs+=sw-cw
-			elif self.alignH=="middle":
-				xs+=(sw-cw)//2
-		if self.alignV:
-			if self.alignV=="bottom":
-				ys+=sh-ch
-			elif self.alignV=="middle":
-				ys+=(sh-ch)//2
-		return (xs,ys)
-
-	def size(self):
-		height,width=(0,0)
-		ch,cw=self.child.size()
-		if not self.alignH:
-			width=cw
-		if not self.alignV:
-			height=ch
-		return (height,width)
+	def size(self): #minimum size
+		return self.child.size()
 
 	def render(self,cnv,x,y,ph,pw):
 		ch,cw=self.child.size()
-		self.child.render(cnv,*self.innerPos(),ph,pw)
+		if self.alignH:
+			if self.alignH=="right":
+				x+=pw-cw
+			elif self.alignH=="middle":
+				x+=(pw-cw)//2
+				if type(self.child) is Text:
+					raise ValueError((pw,cw))
+		if self.alignV:
+			if self.alignV=="bottom":
+				y+=ph-ch
+			elif self.alignV=="middle":
+				y+=(ph-ch)//2
+		assert(ph>=ch)
+		assert(pw>=cw)
+		self.child.render(cnv,x,y,ch,cw)
 
 Element.extensions['align']=lambda self: lambda *args,**kwargs: Aligner(self,*args,**kwargs)
 
@@ -539,14 +414,34 @@ class Wrapper(Container):
 Element.extensions['wrap']=lambda self: lambda *args,**kwargs: Wrapper(self,*args,**kwargs)
 
 class Text(Element): # just text
-	ridgid=True
 	def __init__(self,text,inc=(1,0),raw=False):
 		self.raw=raw
+		self._inc=inc
 		self.text=text
-		self.inc=inc
+
+	@property
+	def text(self):
+		return self._text
+
+	def updateSize(self):
+		self._size=tc.ssize(self.text,inc=self.inc)
+
+	@text.setter
+	def text(self,value):
+		self._text=value
+		self.updateSize()
+
+	@property
+	def inc(self):
+		return self._inc
+
+	@inc.setter
+	def inc(self,value):
+		self._inc=value
+		self.updateSize()
 
 	def size(self):
-		return tc.ssize(self.text,inc=self.inc)
+		return self._size
 
 	def render(self,cnv,x,y,ph,pw):
 		cnv.cursor.goto(x,y)
@@ -554,7 +449,6 @@ class Text(Element): # just text
 		self.raw and cnv.print(self.text,inc=self.inc)
 
 class Seperator(Element):
-	ridgid=False
 	def __init__(self,orientation,character):
 		self.v= orientation=='vertical'
 		self.character=character
@@ -570,18 +464,19 @@ class Seperator(Element):
 		return (0,1) if self.v else (1,0)
 
 class CanvasDisplay(Element):
-	def __init__(self,canvas,height,width,x=0,y=0): #x and y are canvas coordinates of rendered top left
+	def __init__(
+		self,canvas,x=0,y=0,function="render"
+	): #x and y are canvas coordinates of rendered top left
 		self.canvas=canvas
 		self.x=x
 		self.y=y
-		self.height=height
-		self.width=width
+		self.function=function
 
 	def size(self):
-		return (self.height,self.width)
+		return (0,0)
 
 	def render(self,cnv,x,y,ph,pw):
-		self.canvas.render(cnv,x,y,self.height,self.width,self.x,self.y)
+		getattr(self.canvas,self.function)(cnv,x,y,ph,pw,self.x,self.y)
 
 class Mutate(Container): #Run a function on every character
 	def __init__(self,trans,child,before=True):

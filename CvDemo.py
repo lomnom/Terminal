@@ -8,7 +8,7 @@ def main(term):
  
 	while True:
 		# \b[background] \f[foreground]
-		term.sprint("\b[blue]*HE*|LLO| \f[magenta]\b[green]*WO*|RLD|!\b\f[default]\n")
+		term.sprint("\b[blue]*HE*|LLO| \f[magenta]\b[green]*WO*|RLD|!\f\b[default]\n")
 		term.sprint("Effects:\n")
 		term.sprint("    - *BOLD*\n")
 		term.sprint("    - |uline|\n") # markdown supported somewhat, | is underline, * is bold... eg

@@ -5,18 +5,19 @@ bold="1"
 dim="2"
 resetweight="22"
 
-flags=[
+#for different text fonts
+flags=[ #{flag character; enable escape number; disable escape number; flag symbol}
 	"b12*", #bold
 	"d22`", #dim
 	"i33_", #italic
 	"u44|", #underline
 	"f55^", #flashing
 	"r77%", #inverse
-	"h88", #hidden
+	"h88",  #hidden
 	"s99~"  #strikethrough
 ]
 
-h256colors={
+h256colors={ #ANSI256 colour aliases (used in \f[colour], \b[colour] and others)
 	"black":"0",
 	"red":"1",
 	"green":"2",
@@ -27,10 +28,10 @@ h256colors={
 	"white":"7"
 }
 
-f2m={}
+f2m={} #character to information
 for item in flags:
 	f2m[item[0]]=item[1:]
-s2m={}
+s2m={} #symbol to information
 for item in flags:
 	if len(item)==4:
 		s2m[item[3]]=item[:-1]
@@ -42,7 +43,7 @@ class Char:
 		self.fcolor=fcolor
 		self.bcolor=bcolor
 		if flags is None:
-			self.flags=set()
+			self.flags=set() #set of characters
 		else:
 			self.flags=set(flags)
 
@@ -82,10 +83,11 @@ class Char:
 		       and self.bcolor=="default"
 
 class Cursor:
+	# wrapping=False #ignore going out of bounds and wrap around
+	wrapping=True
 	def __init__(self,x,y,fcolor="default",bcolor="default",flags=None):
 		self.x=x
 		self.y=y
-		self.bound()
 		self.fcolor=fcolor
 		self.bcolor=bcolor
 		self.flags=flags
@@ -94,92 +96,77 @@ class Cursor:
 		else:
 			self.flags=set(flags)
 
-	def bound(self):
-		self.x=self.x%term.columns
-		self.y=self.y%term.rows
-
 	def nostyle(self):
 		self.fcolor="default"
 		self.bcolor="default"
 		self.flags=set()
 
-	def addCh(self,char,term):
-		term.matrix[self.y][self.x]=Char(
+	def wrap(self,cnv):
+		width=len(cnv.matrix[0])
+		height=len(cnv.matrix)
+		if self.x>=width or self.y>=height:
+			if self.wrapping:
+				return (self.x%width, self.y%height)
+			else:
+				raise ValueError(
+					f"Out of bounds (at {self.x,self.y} where size is {height,width})"
+				)
+		else:
+			return (self.x,self.y)
+
+	def addCh(self,char,cnv): # add character with cursor formatting
+		x,y=self.wrap(cnv)
+
+		cnv.matrix[y][x]=Char(
 			char,
 			fcolor=self.fcolor,
 			bcolor=self.bcolor,
 			flags=self.flags.copy()
 		)
 
-	def putCh(self,char,term):
-		term.matrix[self.y][self.x]=char
+	def putCh(self,char,cnv): # add own character
+		cnv.matrix[self.y][self.x]=char
 
-	def __add__(self,other):
-		self.x+=other[0]
-		self.y+=other[1]
-		self.bound()
+	def __add__(self,offset):
+		self.x+=offset[0]
+		self.y+=offset[1]
 		return self
 
-	def __sub__(self,other):
-		self.x-=other[0]
-		self.y-=other[1]
-		self.bound()
+	def __sub__(self,offset):
+		self.x-=offset[0]
+		self.y-=offset[1]
 		return self
 
 	def goto(self,x,y):
 		self.x=x
 		self.y=y
-		self.bound()
+
+	def goX(self,x):
+		self.x=x
+	
+	def goY(self,y):
+		self.y=y
 
 class FakeCursor(Cursor):
 	def putCh(*_): pass
 	def addCh(*_): pass
 
 fakecursor=FakeCursor(0,0)
+fakecursor.wrapping=True
 
-def sprint(data,cursor,cnv,inc=(1,0)):
-	pos=0
-	proccessFg=False
-	proccessBg=False
-	escaped=False
-	height=1
-	width=[0]
-	x=cursor.x
-	while not pos>=len(data):
-		if data[pos]=="\\":
-			escaped=True
-			pos+=1
-			continue
-		elif not escaped:
-			if data[:2]=="\f\b" or data[:2]=="\b\f":
-				pos+=2
-				proccessFg=True
-				proccessBg=True
-				continue
-			elif data[pos]=="\f":
-				pos+=1
-				proccessFg=True
-				continue
-			elif data[pos]=="\b":
-				pos+=1
-				proccessBg=True
-				continue
-			elif data[pos] in s2m:
-				cursor.flags^={s2m[data[pos]][0]}
-				pos+=1
-				continue
-			elif data[pos]=="\n":
-				cursor.y+=1
-				cursor.x=x
-				cursor.bound()
-				pos+=1
-				height+=1
-				width.append(0)
-				continue
-		else:
-			escaped=False
+def sprint(data,cursor,cnv,inc=(1,0),newline=(0,1)):
+	processFg=False #take colour expression next "[colour]"
+	processBg=False 
+	escaped=False #ignore next special character 
+	pos=0 #position in string
+	line=0 #line number (starts from 0!)
+	beginY=cursor.y #initial cursor position
+	beginX=cursor.x
+	maxCoords=[beginX,beginY] # used to calculate size
+	minCoords=[beginX,beginY]
 
-		if proccessBg or proccessFg:
+	while not pos>=len(data): #iterate through entire string
+		if processBg or processFg: #brought out to reduce repeat code
 			if data[pos]=="[":
 				pos+=1
 				color=data[pos:].partition("]")[0]
@@ -188,21 +175,66 @@ def sprint(data,cursor,cnv,inc=(1,0)):
 					color=h256colors[color]
 				color=int(color) if color!="default" else color
 				assert(color=="default" or color<256) #make sure color in \f[] is valid
-				if proccessFg:
+				if processFg:
 					cursor.fcolor=color
-				if proccessBg:
+				if processBg:
 					cursor.bcolor=color
-				proccessFg=False
-				proccessBg=False
+				processFg=False
+				processBg=False
 				continue
+			else:
+				data=data.replace("\f",'\\f').replace("\b",'\\b')
+				raise SyntaxError(
+					f"\\f or \\b not continued with [colour] in string `{data}` at position {pos}"
+				)
 
+		if not escaped: #special characters (should not directly add characters)
+			#find colour modifiers
+			if data[pos]=="\\": #evaluate escaping front slash character
+				escaped=True
+				pos+=1
+				continue
+			elif data[pos:pos+2]=="\f\b" or data[pos:pos+2]=="\b\f": 
+				pos+=2
+				processFg=True
+				processBg=True
+				continue
+			elif data[pos]=="\f":
+				pos+=1
+				processFg=True
+				continue
+			elif data[pos]=="\b":
+				pos+=1
+				processBg=True
+				continue
+			elif data[pos] in s2m:
+				cursor.flags^={s2m[data[pos]][0]}
+				pos+=1
+				continue
+			elif data[pos]=="\n":
+				line+=1 #destination line
+				cursor.x=beginX+(newline[0]*line)
+				cursor.y=beginY+(newline[1]*line)
+				pos+=1
+				continue
+		else:
+			escaped=False
+
+		# normal characters (should be the only thing displayed)
 		cursor.addCh(data[pos],cnv)
-		width[-1]+=inc[0]
-		height+=inc[1]
-		if inc[1]: width.append(0)
 		cursor+=inc
 		pos+=1
-	return (height,max(width))
+
+		if cursor.x>maxCoords[0]:
+			maxCoords[0]=cursor.x
+		if cursor.y>maxCoords[1]:
+			maxCoords[1]=cursor.y
+		if cursor.x<minCoords[0]:
+			minCoords[0]=cursor.x
+		if cursor.y<minCoords[1]:
+			minCoords[1]=cursor.y
+
+	return (maxCoords[1]-minCoords[1]+1,maxCoords[0]-minCoords[0]+1) # height, width
 
 class Canvas:
 	def __init__(self,rows,cols,filler=" "):
@@ -266,9 +298,7 @@ class Terminal(Canvas):
 		self.id=uuid()
 		term.sizereceivers[self.id]=lambda r,c: self.resize(r,c) or term.clear()
 		super().__init__(term.rows,term.columns)
-
-	def __del__(self):
-		del term.sizereceivers[self.id]
+		self.project=super().render
 
 	def _render(self):
 		prev=None
@@ -300,19 +330,66 @@ class Terminal(Canvas):
 	def render(self,*_):
 		term.fprint(self._render())
 
-def canvasApp(main):
+# https://stackoverflow.com/questions/1643327/sys-excepthook-and-threading
+import sys
+import threading
+
+def setup_thread_excepthook():
+    """
+    Workaround for `sys.excepthook` thread bug from:
+    http://bugs.python.org/issue1230540
+
+    Call once from the main thread before creating any threads.
+    """
+
+    init_original = threading.Thread.__init__
+
+    def init(self, *args, **kwargs):
+
+        init_original(self, *args, **kwargs)
+        run_original = self.run
+
+        def run_with_except_hook(*args2, **kwargs2):
+            try:
+                run_original(*args2, **kwargs2)
+            except Exception:
+                sys.excepthook(*sys.exc_info())
+
+        self.run = run_with_except_hook
+
+    threading.Thread.__init__ = init
+setup_thread_excepthook()
+# ========================================================================
+
+import sys, os
+from time import sleep
+DIED=False #if the program died
+def canvasApp(main): #TODO: make it into global exception bracket
+	global DIED
 	term.raw()
 	term.noctrlc()
 	term.canvas()
 	term.clear()
-	try:
-		main(Terminal())
-	except Exception as err:
+	term.nbStdin()
+
+	def exceptHook(exception,value,traceback):
+		global DIED
 		term.clear()
 		term.uncanvas()
 		term.ctrlc()
 		term.unraw()
-		raise err
+		DIED=True
+		sleep(0.1)
+		sys.__excepthook__(exception, value, traceback)
+		os._exit(-1)
+	sys.excepthook=exceptHook
+
+	trm=Terminal()
+	main(trm)
+
+	DIED=True #if the program died
+	sleep(0.1) 
+	term.bStdin()
 	term.clear()
 	term.uncanvas()
 	term.ctrlc()

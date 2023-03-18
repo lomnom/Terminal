@@ -384,8 +384,6 @@ class Aligner(Container): # aligns child, (Element,alignH="right"|"middle",align
 				x+=pw-cw
 			elif self.alignH=="middle":
 				x+=(pw-cw)//2
-				if type(self.child) is Text:
-					raise ValueError((pw,cw))
 		if self.alignV:
 			if self.alignV=="bottom":
 				y+=ph-ch

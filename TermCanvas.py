@@ -234,7 +234,7 @@ def sprint(data,cursor,cnv,inc=(1,0),newline=(0,1)):
 		if cursor.y<minCoords[1]:
 			minCoords[1]=cursor.y
 
-	return (maxCoords[1]-minCoords[1]+1,maxCoords[0]-minCoords[0]+1) # height, width
+	return (maxCoords[1]-minCoords[1]+1,maxCoords[0]-minCoords[0]) # height, width
 
 class Canvas:
 	def __init__(self,rows,cols,filler=" "):
@@ -287,7 +287,7 @@ class Canvas:
 		for row in range(y,y+h):
 			self.matrix[row][x:x+w]=l
 
-	def sprint(self,data,inc=(1,0)): #aaAAAAAAA Todo: impl a function to compute displayed length
+	def sprint(self,data,inc=(1,0)):
 		return sprint(data,self.cursor,self,inc=inc)
 
 def ssize(data,inc=(1,0)):

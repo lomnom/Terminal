@@ -1,7 +1,7 @@
 import TermUI as tui
 import TermCanvas as tc
 import Terminal as trm
-import TermIntr as ti
+# import TermIntr as ti
 
 from time import sleep
 

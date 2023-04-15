@@ -74,7 +74,7 @@ def main(cnv):
 					.alter({
 						"bcolor":lambda chr,x,y: 233
 					}),
-			),
+			)
 		).align(alignH="middle",alignV="middle")
 	)
 

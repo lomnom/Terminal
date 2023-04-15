@@ -19,6 +19,9 @@ class sched:
 	framesLater=1
 	frame=2
 
+def lagCallback(frames):
+	pass #modify
+
 class Frames:
 	def __init__(self,fps,root):
 		self.stopwatch=trm.Stopwatch()
@@ -54,7 +57,10 @@ class Frames:
 		self.stopwatch.start()
 
 		while self.running and not tc.DIED:
-			sleep(self.delay*self.frame-self.stopwatch.time())
+			try:
+				sleep(self.delay*self.frame-self.stopwatch.time())
+			except ValueError:
+				lagCallback(self) #Called on lag
 			if self.frame in self.requested:
 				callbacks=self.requested[self.frame]
 				for callback in callbacks:
@@ -117,6 +123,7 @@ blocks={
 }
 
 # parent class of all elements
+
 class Element: # children must implement render
 	parent=None
 
@@ -149,6 +156,9 @@ class Container(Element): # children only have to implement render()
 		self.child.disowned()
 		self.child=None
 
+	def whatChild(self,x,y,h,w): #Iterator -> (child, (x,y,h,w))
+		raise NotImplementedError
+
 # parent class of all containers with multiple children
 class MultiContainer(Container): # children have to implement render()
 	children=None
@@ -169,6 +179,8 @@ class MultiContainer(Container): # children have to implement render()
 	def __len__(self):
 		return len(self.children)
 
+# actual elements
+
 class ElementSwitcher(MultiContainer): # shows child no. self.visible
 	def __init__(self,*children,visible=0):
 		self.children=[]
@@ -178,6 +190,9 @@ class ElementSwitcher(MultiContainer): # shows child no. self.visible
 
 	def size(self):
 		return self.children[self.visible].size()
+
+	def whatChild(self,x,y,h,w):
+		yield (self.child,(x,y,h,w))
 
 	def render(self,cnv,x,y,ph,pw):
 		self.children[self.visible].render(cnv,x,y,ph,pw)
@@ -198,9 +213,13 @@ class ZStack(MultiContainer): # layers all children above each other
 				widthM=width
 		return (heightM,widthM)
 
-	def render(self,cnv,x,y,ph,pw):
+	def whatChild(self,x,y,h,w):
 		for child in self.children:
-			child.render(cnv,x,y,ph,pw)
+			yield (child,(x,y,h,w))
+
+	def render(self,cnv,x,y,ph,pw):
+		for child,alloc in self.whatChild(x,y,h,w):
+			child.render(cnv,*alloc)
 
 # class Alloc(MultiContainer): # percentages, absolutes and auto
 
@@ -218,18 +237,22 @@ class Stack(MultiContainer):
 			self.setChild(child,index)
 		self.vertical=(axis=='vertical')
 
-	def render(self,cnv,x,y,ph,pw):
+	def whatChild(self,x,y,ph,pw):
 		offset=0
 		if self.vertical:
 			for child in self.children:
 				height=child.size()[0]
-				child.render(cnv,x,y+offset,height,pw)
+				yield (child,(x,y+offset,height,pw))
 				offset+=height
 		else:
 			for child in self.children:
 				width=child.size()[1]
-				child.render(cnv,x+offset,y,ph,width)
+				yield (child,(x+offset,y,ph,width))
 				offset+=width
+
+	def render(self,cnv,x,y,ph,pw):
+		for child,alloc in self.whatChild(x,y,ph,pw):
+			child.render(cnv,*alloc)
 
 	def size(self):
 		stacked=0
@@ -286,12 +309,18 @@ class Expander(Container): # Expand child to set size
 		return ((ch if not self.expandV else self.expandV),
 		        (cw if not self.expandH else self.expandH))
 
-	def render(self,cnv,x,y,ph,pw):
-		self.child.render(
-			cnv,x,y,
+
+	def whatChild(self,x,y,ph,pw):
+		yield (self.child,(x,y,
 			(ph if not self.expandV else self.expandV),
-			(pw if not self.expandH else self.expandH)
+			(pw if not self.expandH else self.expandH))
 		)
+
+	def render(self,cnv,x,y,ph,pw):
+		for child,alloc in self.whatChild(x,y,ph,pw):
+			child.render(
+				cnv,*alloc
+			)
 
 # any element can have expand called on it to wrap in expander
 # Element.expand(expandH=int,expandV=int) -> Expander(Element)
@@ -302,11 +331,17 @@ class Padding(Container): # adds padding to allocated space
 		self.setChild(child)
 		self.top,self.bottom,self.left,self.right=top,bottom,left,right
 
-	def render(self,cnv,x,y,ph,pw):
-		self.child.render(
-			cnv,x+self.left,y+self.top,
+	def whatChild(self,x,y,ph,pw):
+		yield (self.child,(
+			x+self.left,y+self.top,
 			ph-(self.top+self.bottom),pw-(self.left+self.right)
-		)
+		))
+
+	def render(self,cnv,x,y,ph,pw):
+		for child,alloc in self.whatChild(x,y,ph,pw):
+			child.render(
+				cnv,*alloc
+			)
 
 	def size(self):
 		height,width=self.child.size()
@@ -337,6 +372,9 @@ class Box(Container): # adds box around child, style can be all special formatti
 	def size(self):
 		ch,cw=self.child.size()
 		return (ch+2,cw+2)
+
+	def whatChild(self,x,y,ph,pw):
+		yield (self.child,x+1,y+1,ph-2,pw-2)
 
 	def render(self,cnv,x,y,ph,pw):
 		self.child.render(cnv,x+1,y+1,ph-2,pw-2)
@@ -377,7 +415,7 @@ class Aligner(Container): # aligns child, (Element,alignH="right"|"middle",align
 	def size(self): #minimum size
 		return self.child.size()
 
-	def render(self,cnv,x,y,ph,pw):
+	def whatChild(self,x,y,ph,pw):
 		ch,cw=self.child.size()
 		if self.alignH:
 			if self.alignH=="right":
@@ -391,7 +429,13 @@ class Aligner(Container): # aligns child, (Element,alignH="right"|"middle",align
 				y+=(ph-ch)//2
 		assert(ph>=ch)
 		assert(pw>=cw)
-		self.child.render(cnv,x,y,ch,cw)
+		yield (self.child,(x,y,ch,cw))
+
+	def render(self,cnv,x,y,ph,pw):
+		for child,alloc in self.whatChild(x,y,ph,pw):
+			child.render(
+				cnv,*alloc
+			)
 
 Element.extensions['align']=lambda self: lambda *args,**kwargs: Aligner(self,*args,**kwargs)
 
@@ -402,6 +446,9 @@ class Wrapper(Container):
 
 	def render(self,*args):
 		self.visible and self.child.render(*args)
+
+	def whatChild(self,x,y,h,w):
+		yield (self.child,(x,y,h,w))
 
 	def size(self):
 		if self.visible:
@@ -484,6 +531,9 @@ class Mutate(Container): #Run a function on every character
 
 	def size(self):
 		return self.child.size()
+
+	def whatChild(self,x,y,h,w):
+		yield (self.child,(x,y,h,w))
 
 	def render(self,cnv,x,y,ph,pw):
 		self.before and self.child.render(cnv,x,y,ph,pw)

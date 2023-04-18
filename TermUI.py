@@ -306,8 +306,8 @@ class Expander(Container): # Expand child to set size
 
 	def size(self):
 		ch,cw=self.child.size()
-		return ((ch if not self.expandV else self.expandV),
-		        (cw if not self.expandH else self.expandH))
+		return ((ch if (not self.expandV) or (self.expandV<ch) else self.expandV),
+		        (cw if (not self.expandH) or (self.expandH<cw) else self.expandH))
 
 
 	def whatChild(self,x,y,ph,pw):
@@ -469,7 +469,11 @@ class Text(Element): # just text
 		return self._text
 
 	def updateSize(self):
-		self._size=tc.ssize(self.text,inc=self.inc)
+		if not self.raw:
+			self._size=tc.ssize(self.text,inc=self.inc)
+		else:
+			text=self.text.split("\n")
+			self._size=(len(text),max([len(line) for line in text]))
 
 	@text.setter
 	def text(self,value):
@@ -490,7 +494,7 @@ class Text(Element): # just text
 
 	def render(self,cnv,x,y,ph,pw):
 		cnv.cursor.goto(x,y)
-		self.raw or cnv.sprint(self.text,inc=self.inc)
+		self.raw or cnv.sprint(self.text,inc=self.inc) and cnv.cursor.nostyle()
 		self.raw and cnv.print(self.text,inc=self.inc)
 
 class Seperator(Element):

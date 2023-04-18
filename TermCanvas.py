@@ -154,6 +154,17 @@ class FakeCursor(Cursor):
 fakecursor=FakeCursor(0,0)
 fakecursor.wrapping=True
 
+def procColor(color):
+	if color in h256colors:
+		color=h256colors[color]
+	elif color.startswith("#"):
+		color=term.toTermCol(*term.hexToRgb(color[1:]))
+	elif color==".":
+		color="default"
+	color=int(color) if color!="default" else color
+	assert(color=="default" or color<256) 
+	return color
+
 def sprint(data,cursor,cnv,inc=(1,0),newline=(0,1)):
 	processFg=False #take colour expression next "[colour]"
 	processBg=False 
@@ -171,14 +182,7 @@ def sprint(data,cursor,cnv,inc=(1,0),newline=(0,1)):
 				pos+=1
 				color=data[pos:].partition("]")[0]
 				pos+=len(color)+1
-				if color in h256colors:
-					color=h256colors[color]
-				elif color.startswith("#"):
-					color=term.toTermCol(*term.hexToRgb(color[1:]))
-				elif color==".":
-					color="default"
-				color=int(color) if color!="default" else color
-				assert(color=="default" or color<256) #make sure color in \f[] is valid
+				color=procColor(color)
 				if processFg:
 					cursor.fcolor=color
 				if processBg:

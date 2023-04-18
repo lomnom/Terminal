@@ -83,17 +83,18 @@ class Selector(Interactive):
 
 class ToggleButton(Interactive,tui.Element): #super simple, please make your own
 	def __init__(self,text,activator,activated=False):
-		self.text=text+f" `({activator})`"
+		self.text=text
 		self.activator=activator
 		self.activated=activated
 		self._onToggle=None
+		self.textUI=tui.Text("")
 		self.updateTextUI()
 
 	def updateTextUI(self):
 		if self.activated:
-			self.textUI=tui.Text("%"+self.text+"%")
+			self.textUI.text="%"+self.text+f" `({activator})`"+"%"
 		else:
-			self.textUI=tui.Text(self.text)
+			self.textUI.text=self.text+f" `({activator})`"
 
 	def size(self):
 		return self.textUI.size()
@@ -114,17 +115,18 @@ class ToggleButton(Interactive,tui.Element): #super simple, please make your own
 
 class Button(Interactive,tui.Element):
 	def __init__(self,text,activator):
-		self.text=text+f" `({activator})`"
+		self.text=text
 		self.activator=activator
 		self._onPress=None
 		self.activated=False
+		self.textUI=tui.Text("")
 		self.updateTextUI()
 
 	def updateTextUI(self):
 		if self.activated:
-			self.textUI=tui.Text("%"+self.text+"%")
+			self.textUI.text="%"+self.text+f" `({self.activator})`"+"%"
 		else:
-			self.textUI=tui.Text(self.text)
+			self.textUI.text=self.text+f" `({self.activator})`"
 
 	def size(self):
 		return self.textUI.size()
@@ -147,34 +149,53 @@ class Button(Interactive,tui.Element):
 		self.textUI.render(cnv,x,y,ph,pw)
 		self.activated=False
 
-
 class Textbox(Interactive,tui.Element):
-	def __init__(self,text,emptyText="Type..."):
-		self.text=text+f" `({activator})`"
-		self.activator=activator
+	def __init__(self,text,cursor=0,emptyText="Type..."):
+		self.text=text
 		self._onPress=None
-		self.activated=False
+		self.textUI=tui.Text("")
+		self.emptyText=emptyText
 		self.updateTextUI()
+		self.cursor=0
 
 	def updateTextUI(self):
-		if self.activated:
-			self.textUI=tui.Text("%"+self.text+"%")
+		if self.text:
+			if self.cursor==len(self.text) or self.text[self.cursor]=="\n":
+				self.textUI.text=self.text[:self.cursor]+"^*\\_*^"+self.text[self.cursor:]
+			else:
+				self.textUI.text=self.text[:self.cursor] +\
+				"|"+self.text[self.cursor]+"|" +\
+				self.text[self.cursor+1:]
 		else:
-			self.textUI=tui.Text(self.text)
+			self.textUI.text="`"+self.emptyText+"`"
 
 	def size(self):
 		return self.textUI.size()
 
 	def key(self,key):
-		if key==self.activator:
-			self.activated=True
-			self.updateTextUI()
-			self.root().frames.schedule(0,tui.sched.framesLater) 
-			self.root().frames.schedule(
-				0.1,tui.sched.secondsLater,callback=lambda *args: self.updateTextUI()
-			)
-			if self._onPress:
-				self._onPress()
+		if key=="backspace":
+			self.text=self.text[:self.cursor-1]+self.text[self.cursor:]
+			self.cursor-=1
+		elif key=="right":
+			self.cursor+=1
+		elif key=="left":
+			self.cursor-=1
+		elif key=="down":
+			self.cursor=len(self.text)
+		elif key=="up":
+			self.cursor=0
+		else:
+			if self.cursor==len(self.text):
+				self.text+=key
+			else:
+				self.text=self.text[:self.cursor]+key+self.text[self.cursor:]
+			self.cursor+=1
+		self.cursor=self.cursor%(len(self.text)+1)
+
+		self.updateTextUI()
+		self.root().frames.schedule(0,tui.sched.framesLater) 
+		if self._onPress:
+			self._onPress()
 
 	def onPress(self,func):
 		self._onPress=func

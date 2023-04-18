@@ -47,6 +47,53 @@ white256=7
 f256=lambda ID: f"\033[38;5;{ID}m" #foreground in 256col, values range 0-255
 b256=lambda ID: f"\033[48;5;{ID}m" #background in 256col 
 
+def greyness(r,g,b): #how grey (unsaturated) something is
+	return 255-((((abs(r-(g+b)/2)**2)/255)+((abs(g-(r+b)/2)**2)/255)+((abs(b-(g+r)/2)**2)/255))/1.5)
+
+def brightness(r,g,b): #greyscale of a colour
+	return round(r*0.2126 + g*0.7152 + b*0.0722)
+
+def toMagIndex(val): #magnitude of colour to index
+	val-=55
+	if val<=0:
+		return 0
+	return val//40
+
+def fromMagIndex(mag):
+	return (val*40)+55
+
+def to216Col(r,g,b):
+	return 16+(toMagIndex(r)*36)+(toMagIndex(g)*6)+toMagIndex(b)
+
+def from216Col(col):
+	return (fromMagIndex(col//36),fromMagIndex((col%36)//6),fromMagIndex(col%6))
+
+def toGreyCol(val):
+	val=(val+2)//10
+	if val==0:
+		return 0
+	elif val>=24:
+		return 231
+	else:
+		return 231+val
+
+def fromGreyCol(val):
+	if val==0:
+		return 0
+	elif val==231:
+		return 255
+	else:
+		return ((val-231)*10)-2
+
+def toTermCol(r,g,b,greynessTresh=255): #treshold above which colours become greyscale
+	if greyness(r,g,b)>greynessTresh:
+		return toGreyCol(brightness(r,g,b))
+	else:
+		return to216Col(r,g,b)
+
+def hexToRgb(hex):
+	return tuple(int(hex[i:i+2], 16) for i in (0, 2, 4))
+
 reset="\033[0m" # resets all color and font effects
 
 bold="\033[1m"

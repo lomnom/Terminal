@@ -173,6 +173,8 @@ def sprint(data,cursor,cnv,inc=(1,0),newline=(0,1)):
 				pos+=len(color)+1
 				if color in h256colors:
 					color=h256colors[color]
+				if color.startswith("#"):
+					color=term.toTermCol(*term.hexToRgb(color[1:]))
 				color=int(color) if color!="default" else color
 				assert(color=="default" or color<256) #make sure color in \f[] is valid
 				if processFg:

@@ -53,9 +53,9 @@ def main(cnv):
 						"bcolor":lambda chr,x,y: 233
 					}),
 				tui.VStack(
-					tui.Text("\b[#D60270]                \n                \b[.]"),
-					tui.Text("\b[#9B4F96]                \b[.]"),
-					tui.Text("\b[#0038A8]                \n                \b[.]")
+					tui.Text("\b[162]                \n                \b[.]"),
+					tui.Text("\b[91]                \b[.]"),
+					tui.Text("\b[20]                \n                \b[.]")
 				),
 			).pad(bottom=1),
 

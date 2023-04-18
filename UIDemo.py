@@ -32,8 +32,8 @@ def main(cnv):
 					}),
 				tui.Text(
 					"*7* files\n"
-					"\f[green]*594*\f[default] additions\n"
-					"\f[red]*497*\f[default] deletions"
+					"\f[green]*594*\f[.] additions\n"
+					"\f[red]*497*\f[.] deletions"
 				)
 					.align(alignV="middle",alignH="middle")
 					.expand(expandH=14,expandV=3)
@@ -53,9 +53,9 @@ def main(cnv):
 						"bcolor":lambda chr,x,y: 233
 					}),
 				tui.VStack(
-					tui.Text("\b[#D60270]                \n                \b[default]"),
-					tui.Text("\b[#9B4F96]                \b[default]"),
-					tui.Text("\b[#0038A8]                \n                \b[default]")
+					tui.Text("\b[#D60270]                \n                \b[.]"),
+					tui.Text("\b[#9B4F96]                \b[.]"),
+					tui.Text("\b[#0038A8]                \n                \b[.]")
 				),
 			).pad(bottom=1),
 

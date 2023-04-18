@@ -55,9 +55,10 @@ def brightness(r,g,b): #greyscale of a colour
 
 def toMagIndex(val): #magnitude of colour to index
 	val-=55
+	val=round((val/40))
 	if val<=0:
 		return 0
-	return val//40
+	return val
 
 def fromMagIndex(mag):
 	return (val*40)+55

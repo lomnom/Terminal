@@ -146,3 +146,39 @@ class Button(Interactive,tui.Element):
 	def render(self,cnv,x,y,ph,pw):
 		self.textUI.render(cnv,x,y,ph,pw)
 		self.activated=False
+
+
+class Textbox(Interactive,tui.Element):
+	def __init__(self,text,emptyText="Type..."):
+		self.text=text+f" `({activator})`"
+		self.activator=activator
+		self._onPress=None
+		self.activated=False
+		self.updateTextUI()
+
+	def updateTextUI(self):
+		if self.activated:
+			self.textUI=tui.Text("%"+self.text+"%")
+		else:
+			self.textUI=tui.Text(self.text)
+
+	def size(self):
+		return self.textUI.size()
+
+	def key(self,key):
+		if key==self.activator:
+			self.activated=True
+			self.updateTextUI()
+			self.root().frames.schedule(0,tui.sched.framesLater) 
+			self.root().frames.schedule(
+				0.1,tui.sched.secondsLater,callback=lambda *args: self.updateTextUI()
+			)
+			if self._onPress:
+				self._onPress()
+
+	def onPress(self,func):
+		self._onPress=func
+
+	def render(self,cnv,x,y,ph,pw):
+		self.textUI.render(cnv,x,y,ph,pw)
+		self.activated=False

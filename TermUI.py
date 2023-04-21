@@ -20,8 +20,7 @@ class sched:
 	frame=2
 
 def lagCallback(frames,lag):
-	frames.root.canvas.cursor.goto(0,0)
-	frames.root.canvas.print(f"Lag, {lag}s behind")
+	pass #modify
 
 class Frames:
 	def __init__(self,fps,root):

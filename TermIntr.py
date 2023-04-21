@@ -55,8 +55,8 @@ class IvContainer(Interactive):
 
 	def disable(self):
 		self.enabled=False
-		for child in children:
-			child.disabled()
+		for child in self.children:
+			child.disable()
 
 	def enabling(self,child):
 		raise NotImplementedError
@@ -141,11 +141,11 @@ class Selector(IvContainer):
 	def __init__(self,selected,*children):
 		self.children=[]
 		self.keys={}
+		self.selected=children[selected][0]
 		for child,key in children:
 			self.addIChild(child)
 			self.keys[key]=child
-
-		self.selected=children[selected]
+		self.views=[]
 
 	def passKey(self,key):
 		if key not in self.keys:
@@ -154,6 +154,8 @@ class Selector(IvContainer):
 			self.selected.disable()
 			self.selected=self.keys[key]
 			self.selected.enable()
+			if self.views:
+				self.root().frames.schedule(0,tui.sched.framesLater) 
 			return False
 
 	def enabling(self,child):
@@ -178,8 +180,11 @@ class Selector(IvContainer):
 
 		def render(self,cnv,x,y,ph,pw):
 			if self.selector.selected==self.iChild:
-				self.box.style.replace('`','')
+				self.box.style=self.box.style.replace('`','')
+				if '*' not in self.box.style:
+					self.box.style+='*'
 			else:
+				self.box.style=self.box.style.replace('*','')
 				if '`' not in self.box.style:
 					self.box.style+='`'
 			self.box.render(cnv,x,y,ph,pw)
@@ -188,14 +193,16 @@ class Selector(IvContainer):
 			h,w=self.child.size()
 			return (h+2,w+2)
 
-	def boxFor(self,child,iChild,*args,**kwargs):
+	def boxFor(self,iChild,child,*args,**kwargs):
 		for key in self.keys:
 			if self.keys[key]==iChild:
 				break
-		return self.SelectorView(child,iChild,key,self,(args,kwargs))
+		view=self.SelectorView(child,iChild,key,self,(args,kwargs))
+		self.views.append(view)
+		return view
 
 class Button(IvEl,tui.Container): #super simple, please make your own
-	def __init__(self,child,activator,activated=False,box=None,toggle=True):
+	def __init__(self,child,activator,activated=False,box=None,toggle=False):
 		self.box=box
 		self.child=child
 		self.activator=activator
@@ -203,8 +210,17 @@ class Button(IvEl,tui.Container): #super simple, please make your own
 		self._onToggle=None
 		self.toggle=toggle #toggle button or press button
 
+	def ui(self):
+		return self.additions(
+			tui.HStack(
+				self.child,
+				tui.Text(f"`({self.activator})`")
+					.pad(left=1)
+			)
+		)
+
 	def size(self):
-		return self.child.size()
+		return self.ui().size()
 
 	def whatChild(self,x,y,ph,pw):
 		return (x,y,ph,pw)
@@ -227,13 +243,7 @@ class Button(IvEl,tui.Container): #super simple, please make your own
 		self._onToggle=func
 
 	def render(self,cnv,x,y,ph,pw):
-		self.additions(
-			tui.HStack(
-				self.child,
-				tui.Text(f"`({self.activator})`")
-					.pad(left=1)
-			)
-		).render(cnv,x,y,ph,pw)
+		self.ui().render(cnv,x,y,ph,pw)
 
 class Textbox(IvEl,tui.Element):
 	def __init__(self,text,cursor=0,emptyText="Type...",box=None):
@@ -257,7 +267,7 @@ class Textbox(IvEl,tui.Element):
 			self.textUI.text="`"+self.emptyText+"`"
 
 	def size(self):
-		return self.textUI.size()
+		return self.additions(self.textUI).size()
 
 	def key(self,key):
 		if key=="backspace":

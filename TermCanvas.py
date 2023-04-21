@@ -386,6 +386,7 @@ def canvasApp(main): #TODO: make it into global exception bracket
 		term.uncanvas()
 		term.ctrlc()
 		term.unraw()
+		term.bStdin()
 		DIED=True
 		sleep(0.1)
 		sys.__excepthook__(exception, value, traceback)

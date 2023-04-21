@@ -19,8 +19,9 @@ class sched:
 	framesLater=1
 	frame=2
 
-def lagCallback(frames):
-	pass #modify
+def lagCallback(frames,lag):
+	frames.root.canvas.cursor.goto(0,0)
+	frames.root.canvas.print(f"Lag, {lag}s behind")
 
 class Frames:
 	def __init__(self,fps,root):
@@ -60,7 +61,7 @@ class Frames:
 			try:
 				sleep(self.delay*self.frame-self.stopwatch.time())
 			except ValueError:
-				lagCallback(self) #Called on lag
+				lagCallback(self,self.stopwatch.time()-self.delay*self.frame) #Called on lag
 			if self.frame in self.requested:
 				callbacks=self.requested[self.frame]
 				for callback in callbacks:
@@ -474,11 +475,12 @@ class Text(Element): # just text
 		else:
 			text=self.text.split("\n")
 			self._size=(len(text),max([len(line) for line in text]))
+		self.touched=False
 
 	@text.setter
 	def text(self,value):
 		self._text=value
-		self.updateSize()
+		self.touched=True
 
 	@property
 	def inc(self):
@@ -487,9 +489,11 @@ class Text(Element): # just text
 	@inc.setter
 	def inc(self,value):
 		self._inc=value
-		self.updateSize()
+		self.touched=True
 
 	def size(self):
+		if self.touched:
+			self.updateSize()
 		return self._size
 
 	def render(self,cnv,x,y,ph,pw):

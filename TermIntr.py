@@ -37,7 +37,7 @@ class IvContainer(Interactive):
 	def addIChild(self,child):
 		child.adopt(self)
 		self.children.append(child)
-		if self.enabling(child):
+		if self.enabled and self.enabling(child):
 			child.enable()
 
 	def orphanIChild(self,child):
@@ -96,13 +96,14 @@ class IvEl(Interactive):
 class IntrRoot(IvContainer):
 	def __init__(self,frames,*children,start=True):
 		self.children=[]
-		for child in children:
-			self.addIChild(child)
 		self.focus=None
 		self.thread=None
 		self.alive=False
 		self.delay=0.01
+		self.enable()
 		self.frames=frames
+		for child in children:
+			self.addIChild(child)
 		start and self.start()
 
 	def passKey(self,key):
@@ -294,16 +295,22 @@ class Textbox(IvEl,tui.Element):
 	def size(self):
 		return self.additions(self.textUI).size()
 
+	def setFocus(self,state):
+		if state==self.typing:
+			return
+		if state:
+			self.root().focus=self
+			self.typing=True
+		else:
+			self.root().focus=None
+			self.typing=False
+		self.onEnterExit(self)
+		self.updateTextUI()
+		self.root().frames.schedule(0,tui.sched.framesLater) 
+
 	def key(self,key):
 		if key==self.enter:
-			if self.typing:
-				self.root().focus=None
-			else:
-				self.root().focus=self
-			self.typing=not self.typing
-			self.onEnterExit(self)
-			self.updateTextUI()
-			self.root().frames.schedule(0,tui.sched.framesLater) 
+			self.setFocus(not self.typing)
 			return
 
 		if not self.typing:
@@ -344,6 +351,12 @@ class Textbox(IvEl,tui.Element):
 
 	def enable(self):
 		self.enabled=True
+		lone=True
+		for child in self.iparent.children:
+			if child.enabled and not child==self:	
+				lone=False
+				break
+		self.setFocus(lone)
 		self.updateTextUI()
 
 	def disable(self):

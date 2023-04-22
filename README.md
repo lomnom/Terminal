@@ -19,8 +19,12 @@ This library is split into 3 parts:
 	- `Text`: text
 	- `Box`: a box
 	- and many more elements for convenient and easy UI creation
+- `TermIntr`: A library for interactive elements, for example:
+	- `Button`: a button
+	- `ToggleButton`: a togglable burron
+	- ...
 
 Documentation is not written yet, and will be started on after the End-Of-Year exams.
 
-For now, you can read the borderline comprehensible code, and try to understand the demo scripts, `CvDemo.py` and `TermUI.py`
+For now, you can read the borderline comprehensible code, and try to understand the demo scripts, `CvDemo.py` and `UIDemo.py`
 

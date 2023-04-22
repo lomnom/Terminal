@@ -422,11 +422,15 @@ class Aligner(Container): # aligns child, (Element,alignH="right"|"middle",align
 				x+=pw-cw
 			elif self.alignH=="middle":
 				x+=(pw-cw)//2
+			else:
+				raise ValueError(f"Invalid align ({self.alignH=})")
 		if self.alignV:
 			if self.alignV=="bottom":
 				y+=ph-ch
 			elif self.alignV=="middle":
 				y+=(ph-ch)//2
+			else:
+				raise ValueError(f"Invalid align ({self.alignV=})")
 		assert(ph>=ch)
 		assert(pw>=cw)
 		yield (self.child,(x,y,ch,cw))

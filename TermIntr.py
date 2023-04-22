@@ -98,6 +98,7 @@ class IntrRoot(IvContainer):
 		self.children=[]
 		for child in children:
 			self.addIChild(child)
+		self.focus=None
 		self.thread=None
 		self.alive=False
 		self.delay=0.01
@@ -106,6 +107,15 @@ class IntrRoot(IvContainer):
 
 	def passKey(self,key):
 		return True
+
+	def key(self,key):
+		if not self.focus:
+			if self.passKey(key):
+				for child in self.children:
+					if child.enabled:
+						child.key(key)
+		else:
+			self.focus.key(key)
 
 	def enabling(self,child):
 		return True
@@ -246,30 +256,59 @@ class Button(IvEl,tui.Container): #super simple, please make your own
 		self.ui().render(cnv,x,y,ph,pw)
 
 class Textbox(IvEl,tui.Element):
-	def __init__(self,text,cursor=0,emptyText="Type...",box=None):
+	def __init__(self,text,cursor=0,box=None,enter="ctrl e"):
 		self.box=box
 		self.text=text
+		self.typing=False
+		self.enter=enter
 		self._onPress=None
+		self._onEnterExit=None
 		self.textUI=tui.Text("")
-		self.emptyText=emptyText
-		self.updateTextUI()
 		self.cursor=0
+		self.updateTextUI()
 
 	def updateTextUI(self):
 		if self.text:
+			if self.enabled:
+				if not self.typing:
+					enterText=f" `({self.enter} to type)`"
+				else:
+					enterText=f" `(exit w/{self.enter})`"
+			else:
+				enterText=""
 			if self.cursor==len(self.text) or self.text[self.cursor]=="\n":
-				self.textUI.text=self.text[:self.cursor]+"^*\\_*^"+self.text[self.cursor:]
+				self.textUI.text=self.text[:self.cursor]+"^*\\_*^"+self.text[self.cursor:]+enterText
 			else:
 				self.textUI.text=self.text[:self.cursor] +\
 				"|"+self.text[self.cursor]+"|" +\
-				self.text[self.cursor+1:]
+				self.text[self.cursor+1:]+enterText
 		else:
-			self.textUI.text="`"+self.emptyText+"`"
+			if self.enabled:
+				if self.typing:
+					self.textUI.text=f"`Press {self.enter} to escape...`"
+				else:
+					self.textUI.text=f"`Press {self.enter} to type...`"
+			else:
+				self.textUI.text="`Select to type...`"
 
 	def size(self):
 		return self.additions(self.textUI).size()
 
 	def key(self,key):
+		if key==self.enter:
+			if self.typing:
+				self.root().focus=None
+			else:
+				self.root().focus=self
+			self.typing=not self.typing
+			self.onEnterExit(self)
+			self.updateTextUI()
+			self.root().frames.schedule(0,tui.sched.framesLater) 
+			return
+
+		if not self.typing:
+			return
+
 		if key=="backspace":
 			self.text=self.text[:self.cursor-1]+self.text[self.cursor:]
 			self.cursor-=1
@@ -297,5 +336,16 @@ class Textbox(IvEl,tui.Element):
 	def onPress(self,func):
 		self._onPress=func
 
+	def onEnterExit(self,func):
+		self._onEnterExit=func
+
 	def render(self,cnv,x,y,ph,pw):
 		self.additions(self.textUI).render(cnv,x,y,ph,pw)
+
+	def enable(self):
+		self.enabled=True
+		self.updateTextUI()
+
+	def disable(self):
+		self.enabled=False
+		self.updateTextUI()

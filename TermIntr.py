@@ -175,7 +175,7 @@ class Selector(IvContainer):
 		else:
 			return False
 
-	class SelectorView(tui.Container):
+	class SelectorView(tui.GenContainer):
 		def __init__(self,child,iChild,key,selector,args):
 			self.selector=selector
 			self.setChild(child)
@@ -186,10 +186,7 @@ class Selector(IvContainer):
 			else:
 				self.box.label=f"`({key})`"
 
-		def whatChild(self,*args):
-			return self.box.whatChild(*args)
-
-		def render(self,cnv,x,y,ph,pw):
+		def innards(self):
 			if self.selector.selected==self.iChild:
 				self.box.style=self.box.style.replace('`','')
 				if '*' not in self.box.style:
@@ -198,11 +195,7 @@ class Selector(IvContainer):
 				self.box.style=self.box.style.replace('*','')
 				if '`' not in self.box.style:
 					self.box.style+='`'
-			self.box.render(cnv,x,y,ph,pw)
-
-		def size(self):
-			h,w=self.child.size()
-			return (h+2,w+2)
+			return self.box
 
 	def boxFor(self,iChild,child,*args,**kwargs):
 		for key in self.keys:
@@ -212,7 +205,7 @@ class Selector(IvContainer):
 		self.views.append(view)
 		return view
 
-class Button(IvEl,tui.Container): #super simple, please make your own
+class Button(IvEl,tui.GenContainer): #super simple, please make your own
 	def __init__(self,child,activator,activated=False,box=None,toggle=False):
 		self.box=box
 		self.child=child
@@ -221,7 +214,7 @@ class Button(IvEl,tui.Container): #super simple, please make your own
 		self._onToggle=None
 		self.toggle=toggle #toggle button or press button
 
-	def ui(self):
+	def innards(self):
 		return self.additions(
 			tui.HStack(
 				self.child,
@@ -229,12 +222,6 @@ class Button(IvEl,tui.Container): #super simple, please make your own
 					.pad(left=1)
 			)
 		)
-
-	def size(self):
-		return self.ui().size()
-
-	def whatChild(self,x,y,ph,pw):
-		return (x,y,ph,pw)
 
 	def key(self,key):
 		if key==self.activator:
@@ -253,47 +240,36 @@ class Button(IvEl,tui.Container): #super simple, please make your own
 	def onToggle(self,func):
 		self._onToggle=func
 
-	def render(self,cnv,x,y,ph,pw):
-		self.ui().render(cnv,x,y,ph,pw)
-
-class Textbox(IvEl,tui.Element):
-	def __init__(self,text,cursor=0,box=None,enter="ctrl e"):
+class Textbox(IvEl,tui.GenElement):
+	def __init__(self,enter,cursor=0,box=None,text=""):
 		self.box=box
 		self.text=text
 		self.typing=False
 		self.enter=enter
 		self._onPress=None
 		self._onEnterExit=None
-		self.textUI=tui.Text("")
 		self.cursor=0
-		self.updateTextUI()
 
-	def updateTextUI(self):
+	def innards(self):
 		if self.text:
-			if self.enabled:
-				if not self.typing:
-					enterText=f" `({self.enter} to type)`"
+			if self.typing:
+				enterText=f" `(exit w/{self.enter})`"
+				if self.cursor==len(self.text) or self.text[self.cursor]=="\n":
+					return tui.Text(self.text[:self.cursor]+"^*\\_*^"+self.text[self.cursor:]+enterText)
 				else:
-					enterText=f" `(exit w/{self.enter})`"
+					return tui.Text(self.text[:self.cursor] +\
+					"|"+self.text[self.cursor]+"|" +\
+					self.text[self.cursor+1:]+enterText)
 			else:
-				enterText=""
-			if self.cursor==len(self.text) or self.text[self.cursor]=="\n":
-				self.textUI.text=self.text[:self.cursor]+"^*\\_*^"+self.text[self.cursor:]+enterText
-			else:
-				self.textUI.text=self.text[:self.cursor] +\
-				"|"+self.text[self.cursor]+"|" +\
-				self.text[self.cursor+1:]+enterText
+				return tui.Text(self.text+f" `(enter w/{self.enter})`")
 		else:
 			if self.enabled:
 				if self.typing:
-					self.textUI.text=f"`Press {self.enter} to escape...`"
+					return tui.Text(f"`Press {self.enter} to escape...`")
 				else:
-					self.textUI.text=f"`Press {self.enter} to type...`"
+					return tui.Text(f"`Press {self.enter} to type...`")
 			else:
-				self.textUI.text="`Select to type...`"
-
-	def size(self):
-		return self.additions(self.textUI).size()
+				return tui.Text("`Select to type...`")
 
 	def setFocus(self,state):
 		if state==self.typing:
@@ -305,7 +281,6 @@ class Textbox(IvEl,tui.Element):
 			self.root().focus=None
 			self.typing=False
 		self.onEnterExit(self)
-		self.updateTextUI()
 		self.root().frames.schedule(0,tui.sched.framesLater) 
 
 	def key(self,key):
@@ -335,7 +310,6 @@ class Textbox(IvEl,tui.Element):
 			self.cursor+=1
 		self.cursor=self.cursor%(len(self.text)+1)
 
-		self.updateTextUI()
 		self.root().frames.schedule(0,tui.sched.framesLater) 
 		if self._onPress:
 			self._onPress()
@@ -346,19 +320,50 @@ class Textbox(IvEl,tui.Element):
 	def onEnterExit(self,func):
 		self._onEnterExit=func
 
-	def render(self,cnv,x,y,ph,pw):
-		self.additions(self.textUI).render(cnv,x,y,ph,pw)
-
 	def enable(self):
 		self.enabled=True
 		lone=True
 		for child in self.iparent.children:
-			if child.enabled and not child==self:	
+			if self.iparent.enabling(child) and not child==self:	
 				lone=False
 				break
+		if lone:
+			raise ValueError(self.iparent.children)
 		self.setFocus(lone)
-		self.updateTextUI()
 
-	def disable(self):
-		self.enabled=False
-		self.updateTextUI()
+class Roller(IvEl,tui.GenElement):
+	def __init__(self,values,position,axis,up="up",down="down"):
+		self.values=values
+		self.position=position
+		self.up=up
+		self.vertical=(axis=="vertical")
+		self.down=down
+		self._onChange=None
+
+	def onChange(self,onChange):
+		self._onChange=onChange
+
+	def key(self,key):
+		if key==self.up:
+			self.position+=1
+		elif key==self.down:
+			self.position-=1
+		self.position=self.position%len(self.values)
+		self.root().frames.schedule(0,tui.sched.framesLater) 
+
+	def innards(self):
+		if self.vertical:
+			return tui.VStack(
+				tui.Text(f"^ `{self.up}`")
+					.align(alignH="middle"),
+				tui.Text(f"|{self.value}|")
+					.align(alignH="middle"),
+				tui.Text(f"v `{self.down}`")
+					.align(alignH="middle")
+			)
+		else:
+			return tui.Text(f"< `{self.up}` |{self.value}| `{self.down}` >")
+
+	@property
+	def value(self):
+		return self.values[self.position]

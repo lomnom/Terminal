@@ -60,9 +60,8 @@ class Char:
 
 	def __sub__(self,other): 
 		nums=""
-		for flag in other.flags:
-			if flag not in self.flags:
-				nums+=f2m[flag][0]+";"
+		for flag in other.flags-self.flags:
+			nums+=f2m[flag][0]+";"
 		if self.fcolor != other.fcolor:
 			nums+=f"38;5;{other.fcolor};" if not other.fcolor=="default" else "39;"
 		if self.bcolor != other.bcolor:
@@ -79,8 +78,7 @@ class Char:
 		return (f"\033[{nums[:-1]}m" if nums else "")
 
 	def isNothing(self):
-		return self.char==" " and ('r' not in self.flags) and ('u' not in self.flags)  \
-		       and self.bcolor=="default"
+		return self.char==" " and self.bcolor=="default" and (not self.flags)
 
 class Cursor:
 	# wrapping=False #ignore going out of bounds and wrap around
@@ -310,6 +308,7 @@ class Terminal(Canvas):
 
 	def _render(self):
 		prev=None
+		prevNothing=None
 		res=""
 		skipped=0
 		for row in self.matrix:
@@ -319,15 +318,21 @@ class Terminal(Canvas):
 				if prev==None:
 					res+=str(char)
 					prev=char
+					prevNothing=char.isNothing()
 				else:
-					toAdd=(prev-char)+char.char
-					if toAdd==" " and char.isNothing():
+					isNothing=char.isNothing()
+					if isNothing and prevNothing:
 						skipped+=1
+						prev=char
+						prevNothing=isNothing
 						continue
-					res+=self.filler*skipped
+					toAdd=(prev-char)+char.char
+					if prevNothing:
+						res+=self.filler*skipped
 					skipped=0
 					res+=toAdd
 					prev=char
+					prevNothing=isNothing
 			if skipped!=0:
 				res+=term.cleartoeol
 			res+="\n"

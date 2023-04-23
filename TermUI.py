@@ -20,6 +20,7 @@ class sched:
 	frame=2
 
 def lagCallback(frames,lag):
+	# raise ValueError(f"Lagging! ({lag=}s behind)")
 	pass #modify
 
 class Frames:
@@ -163,11 +164,19 @@ class Container(Element): # children only have to implement render()
 class MultiContainer(Container): # children have to implement render()
 	children=None
 	def setChild(self,child,index):  # (Element,index), where index is position of child
-		if index<=len(self.children):
-			self.children.append(child)
+		if not (index<=len(self.children) or index<0):
+			self.disownChild(self.children[index])
+		return self.insertChild(child,index)
+
+	def insertChild(self,child,index): # (Element, int) -> int
+		if index<=len(self.children) and index>=0:
+			self.children.insert(index,child)
+			child.adopted(self)
+			return index
 		else:
-			self.children[index]=child
-		child.adopted(self)
+			self.children.append(child)
+			child.adopted(self)
+			return len(self.children)-1
 
 	updateChild=setChild
 
@@ -178,6 +187,24 @@ class MultiContainer(Container): # children have to implement render()
 
 	def __len__(self):
 		return len(self.children)
+
+class GenContainer(Container):
+	def whatChild(self,x,y,ph,pw):
+		innards=self.innards()
+		yield from innards.whatChild(x,y,ph,pw)
+
+	def size(self):
+		return self.innards().size()
+
+	def render(self,cnv,x,y,ph,pw):
+		self.innards().render(cnv,x,y,ph,pw)
+
+class GenElement(Element):
+	def size(self):
+		return self.innards().size()
+
+	def render(self,cnv,x,y,ph,pw):
+		self.innards().render(cnv,x,y,ph,pw)
 
 # actual elements
 
@@ -312,8 +339,7 @@ class Expander(Container): # Expand child to set size
 
 	def whatChild(self,x,y,ph,pw):
 		yield (self.child,(x,y,
-			(ph if not self.expandV else self.expandV),
-			(pw if not self.expandH else self.expandH))
+			*self.size())
 		)
 
 	def render(self,cnv,x,y,ph,pw):

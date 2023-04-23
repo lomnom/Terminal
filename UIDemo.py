@@ -55,8 +55,8 @@ def addPriority(name,visual,insert):
 addPriority(
 	"Code",
 	"*7* files\n"
-	"\f[green]*594*\f[.] additions\n"
-	"\f[red]*497*\f[.] deletions",
+	"\f[green]*3905*\f[.] additions\n"
+	"\f[red]*1984*\f[.] deletions",
 	-1
 )
 

@@ -8,8 +8,8 @@ from threading import Lock as lock
 def main(cnv):
 	quitlock=lock()
 	quitlock.acquire()
-	quitButton=ti.Button("Press q to quit","q")
-	@quitButton.onPress
+	quitButton=ti.Button("quit","q")
+	@quitButton.onToggle
 	def onPress(*_):
 		quitlock.release()
 
@@ -20,6 +20,10 @@ def main(cnv):
 		).align(alignH="middle",alignV="middle")
 	)
 
-	intrRoot=ti.IntrRoot(quitButton,root.frames)
+	intrRoot=ti.IntrRoot(
+		root.frames,
+		quitButton
+	)
 	root.frames.schedule(0,tui.sched.framesLater)
+
 	quitlock.acquire()

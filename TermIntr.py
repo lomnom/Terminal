@@ -208,6 +208,8 @@ class Selector(IvContainer):
 class Button(IvEl,tui.GenContainer): #super simple, please make your own
 	def __init__(self,child,activator,activated=False,box=None,toggle=False):
 		self.box=box
+		if type(child) is str:
+			child=tui.Text(f"Press {activator} to {child}!")
 		self.child=child
 		self.activator=activator
 		self.activated=activated

@@ -14,12 +14,15 @@ class List(tui.GenContainer,tui.MultiContainer):
 			self.setChild(child,index)
 
 	def innards(self):
-		return tui.VStack(*[
-			tui.HStack(
-				tui.Text(str(index+1)+'.').pad(right=1),
-				child
-			).pad(bottom=self.padding) for index,child in enumerate(self.children)
-		])
+		if self.children:
+			return tui.VStack(*[
+				tui.HStack(
+					tui.Text(str(index+1)+'.').pad(right=1),
+					child
+				).pad(bottom=self.padding) for index,child in enumerate(self.children)
+			])
+		else:
+			return tui.Text("`(Empty list)`")
 
 class Priority(tui.GenContainer):
 	def __init__(self,name,visual):
@@ -64,16 +67,29 @@ priorityInputs=ti.Group(
 	(visual:= ti.Textbox('ctrl v') ),
 	(name:= ti.Textbox('ctrl n') ),
 	(index:= ti.Roller(["Add new"],0,"horizontal") ),
-	(create:= ti.Button(tui.Text("Press c to create!"),'c') )
+	(create:= ti.Button("create",'c') )
+)
+
+deleteInputs=ti.Group(
+	index,
+	(deleter:= ti.Button("delete",'d') )
+)
+
+selector=ti.Selector(0,
+	(priorityInputs,"C"),
+	(deleteInputs,"D")
 )
 
 priorities=priorityList.children
 def updateIndexes():
 	index.values=["Add New",*range(1,len(priorities)+1)]
+	index.position%=len(index.values)
 updateIndexes()
 
 @create.onToggle
 def onCreate(_):
+	if not name.text+visual.text:
+		return
 	position=index.value
 	if position=="Add New":
 		position=-1
@@ -85,13 +101,21 @@ def onCreate(_):
 	visual.text=""
 	updateIndexes()
 
+@deleter.onToggle
+def onDelete(_):
+	position=index.value
+	if position=="Add New":
+		position=-1
+	else:
+		position-=1
+	priorityList.disownChild(priorityList.children[position])
+	updateIndexes()
+
 @tc.canvasApp # wrapper that initialises the terminal and passes the canvas to you
 def main(cnv):
 	quitlock=lock()
 	quitlock.acquire()
-	quitButton=ti.Button(
-		tui.Text("Press q to quit")
-	,"q")
+	quitButton=ti.Button("quit","q")
 	@quitButton.onToggle
 	def onPress(*_):
 		quitlock.release()
@@ -101,19 +125,26 @@ def main(cnv):
 		tui.VStack(
 			tui.Text("*_My priorities_*"),
 			priorityList,
-			tui.Box(
+			selector.boxFor(priorityInputs,
 				tui.VStack(
 					tui.HStack(tui.Text("*Name:* "),name),
 					tui.HStack(tui.Text("*Visual:* "),visual),
 					tui.HStack(tui.Text("*Insert at:* "),index),
 					create
 				).pad(left=1,right=1),
-			tui.lines.thin,
-			label="*Create a priority*"),
+				tui.lines.thin,label="*Create a priority*"
+			),
+			selector.boxFor(deleteInputs,
+				tui.VStack(
+					tui.HStack(tui.Text("*Delete at:* "),index),
+					deleter
+				).pad(left=1,right=1),
+				tui.lines.thin,label="*Remove a priority*"
+			),
 			quitButton
 		).align(alignH="middle",alignV="middle")
 	)
 
-	intrRoot=ti.IntrRoot(root.frames,ti.Group(quitButton,priorityInputs))
+	intrRoot=ti.IntrRoot(root.frames,ti.Group(quitButton,selector))
 	root.frames.schedule(0,tui.sched.framesLater)
 	quitlock.acquire()

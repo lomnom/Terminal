@@ -58,15 +58,20 @@ class Frames:
 		self.stopwatch.start()
 
 		while self.running and not tc.DIED:
+			lag=False
 			try:
 				sleep(self.delay*self.frame-self.stopwatch.time())
 			except ValueError:
 				lagCallback(self,self.stopwatch.time()-self.delay*self.frame) #Called on lag
+				lag=self.stopwatch.time()-self.delay*self.frame
 			if self.frame in self.requested:
 				callbacks=self.requested[self.frame]
 				for callback in callbacks:
 					callback(self)
-				self.root.render()
+				if lag:
+					self.root.render(debugText=f"Lagging! ({round(lag*100000)/100}ms behind)")
+				else:
+					self.root.render()
 				del self.requested[self.frame]
 			self.frame+=1
 
@@ -256,49 +261,83 @@ class ZStack(MultiContainer): # layers all children above each other
 # def HAlloc(*args,**kwargs):
 # 	return Alloc('horizontal',*args,**kwargs)
 
+# add percentages
+
+floor=lambda n: round(n-0.5)
 class Stack(MultiContainer):
 	def __init__(self,axis,*children):
 		self.children=[]
+		self.percentages={}
 		assert(axis=="vertical" or axis=="horizontal")
 		for index,child in enumerate(children):
-			self.setChild(child,index)
+			if type(child) is tuple:
+				self.percentages[child[0]]=child[1]
+				self.setChild(child[0],index)
+			else:
+				self.setChild(child,index)
 		self.vertical=(axis=='vertical')
 
-	def whatChild(self,x,y,ph,pw):
-		offset=0
-		if self.vertical:
-			for child in self.children:
-				height=child.size()[0]
-				yield (child,(x,y+offset,height,pw))
-				offset+=height
+	def setPercentage(self,child):
+		self.percentages[child]=percentage
+		assert(sum(self.percentages.values)<=100)
+
+	def getPercentage(self,child):
+		try:
+			return self.percentages[child]
+		except KeyError:
+			return -1 #child size
+
+	def removePercentage(self,child):
+		del self.percentages[child]
+
+	def whatChild(self,x,y,ph=None,pw=None):
+		sizes={}
+		for child in self.children:
+			sizes[child]=child.size()
+		allocated=ph is not None and pw is not None
+		if allocated:
+			freeSpace=(ph if self.vertical else pw)-sum(
+				[ sizes[child][not self.vertical] for child in sizes if child not in self.percentages]
+			)
 		else:
-			for child in self.children:
-				width=child.size()[1]
-				yield (child,(x+offset,y,ph,width))
-				offset+=width
+			freeSpace=0
+
+		offset=0
+		inaccuracy=0
+		
+		for child in self.children:
+			if child not in self.percentages or not allocated:
+				stacking=sizes[child][not self.vertical]
+			else:
+				stacking=((self.percentages[child]/100)*freeSpace)+inaccuracy
+				if stacking>=sizes[child][not self.vertical]:
+					inaccuracy+=stacking%1
+					stacking=floor(stacking)
+				else:
+					stacking=sizes[child][not self.vertical]
+			if self.vertical:
+				yield (child,(x,y+offset,stacking,sizes[child][1]))
+			else:
+				yield (child,(x+offset,y,sizes[child][0],stacking))
+			offset+=stacking
 
 	def render(self,cnv,x,y,ph,pw):
 		for child,alloc in self.whatChild(x,y,ph,pw):
 			child.render(cnv,*alloc)
 
-	def size(self):
-		stacked=0
-		if self.vertical:
-			maxWidth=0
-			for child in self.children:
-				childSize=child.size()
-				stacked+=childSize[0]
-				if childSize[1]>maxWidth:
-					maxWidth=childSize[1]
-			return (stacked,maxWidth)
-		else:
-			maxHeight=0
-			for child in self.children:
-				childSize=child.size()
-				stacked+=childSize[1]
-				if childSize[0]>maxHeight:
-					maxHeight=childSize[0]
-			return (maxHeight,stacked)
+	def size(self): # rewrite to use whatChild
+		height=0
+		width=0
+		for alloc in self.whatChild(0,0):
+			if self.vertical:
+				height+=alloc[1][2]
+				if alloc[1][3]>width:
+					width=alloc[1][3]
+			else:
+				width+=alloc[1][3]
+				if alloc[1][2]>height:
+					height=alloc[1][2]
+		return (height,width)
 
 def VStack(*args,**kwargs):
 	return Stack('vertical',*args,**kwargs)
@@ -319,9 +358,12 @@ class Root(Container): # container that is the grandparent of everything, projec
 	def size(self):
 		return (trm.rows,trm.columns)
 
-	def render(self):
+	def render(self,debugText=None):
 		self.canvas.clear()
 		self.child.render(self.canvas,0,0,trm.rows,trm.columns)
+		if debugText:
+			self.canvas.cursor.goto(0,len(self.canvas.matrix)-1)
+			self.canvas.print(debugText)
 		self.canvas.render()
 
 class Expander(Container): # Expand child to set size
@@ -457,8 +499,8 @@ class Aligner(Container): # aligns child, (Element,alignH="right"|"middle",align
 				y+=(ph-ch)//2
 			else:
 				raise ValueError(f"Invalid align ({self.alignV=})")
-		assert(ph>=ch)
-		assert(pw>=cw)
+		# assert(ph>=ch)
+		# assert(pw>=cw)
 		yield (self.child,(x,y,ch,cw))
 
 	def render(self,cnv,x,y,ph,pw):

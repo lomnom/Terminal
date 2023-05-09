@@ -499,9 +499,9 @@ class Aligner(Container): # aligns child, (Element,alignH="right"|"middle",align
 				y+=(ph-ch)//2
 			else:
 				raise ValueError(f"Invalid align ({self.alignV=})")
-		# assert(ph>=ch)
-		# assert(pw>=cw)
-		yield (self.child,(x,y,ch,cw))
+		assert(ph>=ch)
+		assert(pw>=cw)
+		yield (self.child,(x,y,(ch if self.alignV else ph),(cw if self.alignH else pw)))
 
 	def render(self,cnv,x,y,ph,pw):
 		for child,alloc in self.whatChild(x,y,ph,pw):

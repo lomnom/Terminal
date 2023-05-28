@@ -316,9 +316,9 @@ class Stack(MultiContainer):
 				else:
 					stacking=sizes[child][not self.vertical]
 			if self.vertical:
-				yield (child,(x,y+offset,stacking,sizes[child][1]))
+				yield (child,(x,y+offset,stacking,sizes[child][1] if not allocated else pw))
 			else:
-				yield (child,(x+offset,y,sizes[child][0],stacking))
+				yield (child,(x+offset,y,sizes[child][0] if not allocated else ph,stacking))
 			offset+=stacking
 
 	def render(self,cnv,x,y,ph,pw):
@@ -430,12 +430,13 @@ class Nothing(Element):
 
 class Box(Container): # adds box around child, style can be all special formatting, eg '*^'
 	# (Element, LineSet, style=str, label=str)
-	def __init__(self,child,lines,style="",label=None,labelPos="left"): 
+	def __init__(self,child,lines,style="",label=None,labelPos="left",greedy=False): 
 		self.setChild(child)
 		self.line=lines
 		self.label=label
 		self.style=style
 		self.labelPos=labelPos
+		self.greedy=greedy
 
 	def size(self):
 		ch,cw=self.child.size()
@@ -445,19 +446,22 @@ class Box(Container): # adds box around child, style can be all special formatti
 		yield (self.child,x+1,y+1,ph-2,pw-2)
 
 	def render(self,cnv,x,y,ph,pw):
+		if self.greedy:
+			rh,rw=ph,pw
+		else:
+			rh,rw=self.child.size()
 		self.child.render(cnv,x+1,y+1,ph-2,pw-2)
-		ch,cw=self.child.size()
 		cnv.cursor.goto(x,y)
 		cnv.sprint(self.style)
 		cnv.print(self.line.tl)
-		cnv.line(self.line.h,cw)
+		cnv.line(self.line.h,rw-2)
 		cnv.print(self.line.tr)
 		cnv.cursor.goto(x,y+1)
-		cnv.line(self.line.v,ch,inc=(0,1))
+		cnv.line(self.line.v,rh-2,inc=(0,1))
 		cnv.print(self.line.bl)
-		cnv.line(self.line.h,cw)
+		cnv.line(self.line.h,rw-2)
 		cnv.print(self.line.br,inc=(0,-1))
-		cnv.line(self.line.v,ch,inc=(0,-1))
+		cnv.line(self.line.v,rh-2,inc=(0,-1))
 		if self.label:
 			if self.labelPos=="left":
 				cnv.cursor.goto(x+1,y)

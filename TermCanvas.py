@@ -47,6 +47,9 @@ class Char:
 		else:
 			self.flags=set(flags)
 
+	def copy(self):
+		return Char(self.char,self.fcolor,self.bcolor,self.flags.copy())
+
 	def __str__(self):
 		colors=(term.f256(self.fcolor) if not self.fcolor=="default" else term.fdefault) + \
 		       (term.b256(self.bcolor) if not self.bcolor=="default" else term.bdefault)
@@ -123,7 +126,7 @@ class Cursor:
 		)
 
 	def putCh(self,char,cnv): # add own character
-		cnv.matrix[self.y][self.x]=char
+		cnv.matrix[self.y][self.x]=char.copy()
 
 	def __add__(self,offset):
 		self.x+=offset[0]
@@ -276,7 +279,8 @@ class Canvas:
 	#x and y are where to render self. sx and sy are top left of rendered internal area
 	def render(self,cnv,x,y,ph,pw,sx,sy): #cnv is canvas, ph and pw is the size to render self
 		for row in range(ph):
-			cnv.matrix[y+row][x:x+pw]=self.matrix[sy+row][sx:sx+pw]
+			for col in range(pw):
+				cnv.matrix[y+row][x+col]=self.matrix[sy+row][sx+col].copy()
 
 	def print(self,data,inc=(1,0)):
 		for char in data:

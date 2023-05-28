@@ -1,5 +1,3 @@
-# UNSTABLE & TRASH
-
 import TermUI as tui
 import TermCanvas as tc
 import Terminal as trm
@@ -10,10 +8,16 @@ class Interactive:
 	iparent=None
 	enabled=False
 	def root(self):
+		return self.grandparent(IntrRoot)
+
+	def grandparent(self,variant):
 		parent=self.iparent
-		while not type(parent) is IntrRoot:
-			parent=parent.iparent
-		return parent
+		try:
+			while not type(parent) is variant:
+				parent=parent.iparent
+			return parent
+		except AttributeError:
+			return None
 
 	def key(self,key):
 		raise NotImplementedError
@@ -96,7 +100,7 @@ class IvEl(Interactive):
 class IntrRoot(IvContainer):
 	def __init__(self,frames,*children,start=True):
 		self.children=[]
-		self.focus=None
+		self.focus=[]
 		self.thread=None
 		self.alive=False
 		self.delay=0.01
@@ -109,6 +113,13 @@ class IntrRoot(IvContainer):
 	def passKey(self,key):
 		return True
 
+	def setFocus(self,focus):
+		self.focus.append(focus)
+
+	def unFocus(self,focus):
+		assert(self.focus[-1]==focus)
+		self.focus.pop()
+
 	def key(self,key):
 		if not self.focus:
 			if self.passKey(key):
@@ -116,7 +127,7 @@ class IntrRoot(IvContainer):
 					if child.enabled:
 						child.key(key)
 		else:
-			self.focus.key(key)
+			self.focus[-1].key(key)
 
 	def enabling(self,child):
 		return True
@@ -205,7 +216,7 @@ class Selector(IvContainer):
 		self.views.append(view)
 		return view
 
-class Button(IvEl,tui.GenContainer): #super simple, please make your own
+class Button(IvEl,tui.GenContainer):
 	def __init__(self,child,activator,activated=False,box=None,toggle=False):
 		self.box=box
 		if type(child) is str:
@@ -277,10 +288,10 @@ class Textbox(IvEl,tui.GenElement):
 		if state==self.typing:
 			return
 		if state:
-			self.root().focus=self
+			self.root().setFocus(self)
 			self.typing=True
 		else:
-			self.root().focus=None
+			self.root().unFocus(self)
 			self.typing=False
 		self.onEnterExit(self)
 		self.root().frames.schedule(0,tui.sched.framesLater) 
@@ -329,8 +340,6 @@ class Textbox(IvEl,tui.GenElement):
 			if self.iparent.enabling(child) and not child==self:	
 				lone=False
 				break
-		if lone:
-			raise ValueError(self.iparent.children)
 		self.setFocus(lone)
 
 class Roller(IvEl,tui.GenElement):

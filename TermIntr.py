@@ -160,22 +160,29 @@ class Group(IvContainer): #group of interactives
 		return True
 
 class Switcher(IvContainer):
-	def __init__(self,sets,selected=0):
-		self.sets=sets
+	def __init__(self,selected,*children):
 		self.children=[]
+		self.selected=children[selected]
 		for child in children:
 			self.addIChild(child)
 
-	def passKey(self,key):
-		return True
+	def select(self,index):
+		self.selected.disable()
+		self.selected=self.children[index]
+		self.selected.enable()
 
 	def enabling(self,child):
-		if child in self.sets[self.selected]:
+		if child==self.selected:
 			return True
 		else:
 			return False
 
+class Nothing(Interactive):
+	def __init__(self):
+		pass
 
+	def key(self,key):
+		pass
 
 class Listener(Interactive): #Listens to all keystrokes
 	def __init__(self):

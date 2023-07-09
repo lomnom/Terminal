@@ -190,37 +190,34 @@ class MultiContainer(Container): # children have to implement render()
 		self.children.remove(child)
 		return child
 
+	def addChild(self,child):
+		return self.insertChild(child,-1)
+
 	def __len__(self):
 		return len(self.children)
 
-class GenMultiContainer(MultiContainer):
+class Generated:
+	def size(self):
+		return self.innards().size()
+
+	def render(self,cnv,x,y,ph,pw):
+		self.innards().render(cnv,x,y,ph,pw)
+
+	def innards(self):
+		raise NotImplementedError
+
+class GenMultiContainer(MultiContainer,Generated):
 	def whatChild(self,x,y,ph,pw):
 		innards=self.innards()
 		yield from innards.whatChild(x,y,ph,pw)
 
-	def size(self):
-		return self.innards().size()
-
-	def render(self,cnv,x,y,ph,pw):
-		self.innards().render(cnv,x,y,ph,pw)
-
-class GenContainer(Container):
+class GenContainer(Container,Generated):
 	def whatChild(self,x,y,ph,pw):
 		innards=self.innards()
 		yield from innards.whatChild(x,y,ph,pw)
 
-	def size(self):
-		return self.innards().size()
-
-	def render(self,cnv,x,y,ph,pw):
-		self.innards().render(cnv,x,y,ph,pw)
-
-class GenElement(Element):
-	def size(self):
-		return self.innards().size()
-
-	def render(self,cnv,x,y,ph,pw):
-		self.innards().render(cnv,x,y,ph,pw)
+class GenElement(Element,Generated):
+	pass
 
 # actual elements
 

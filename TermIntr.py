@@ -159,6 +159,34 @@ class Group(IvContainer): #group of interactives
 	def enabling(self,child):
 		return True
 
+class Switcher(IvContainer):
+	def __init__(self,sets,selected=0):
+		self.sets=sets
+		self.children=[]
+		for child in children:
+			self.addIChild(child)
+
+	def passKey(self,key):
+		return True
+
+	def enabling(self,child):
+		if child in self.sets[self.selected]:
+			return True
+		else:
+			return False
+
+
+
+class Listener(Interactive): #Listens to all keystrokes
+	def __init__(self):
+		self.handler=lambda: None
+
+	def handle(self,handler):
+		self.handler=handler
+
+	def key(self,key):
+		self.handler(key)
+
 class Selector(IvContainer):
 	def __init__(self,selected,*children):
 		self.children=[]
@@ -378,3 +406,20 @@ class Roller(IvEl,tui.GenElement):
 	@property
 	def value(self):
 		return self.values[self.position]
+
+#get all interactives in an element
+def allInteractives(element):
+	results=[]
+	if isinstance(element,Interactive):
+		results.append(element)
+	if isinstance(element,tui.MultiContainer):
+		for child in element.children:
+			if isinstance(child,Interactive):
+				results.append(child)
+			else:
+				results+=allInteractives(child)
+	elif isinstance(element,tui.Container):
+		results+=allInteractives(element.child)
+	return results
+
+tui.Element.extensions['interactives']=lambda self: lambda *args,**kwargs: allInteractives(self)

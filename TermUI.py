@@ -173,7 +173,7 @@ class MultiContainer(Container): # children have to implement render()
 			self.disownChild(self.children[index])
 		return self.insertChild(child,index)
 
-	def insertChild(self,child,index): # (Element, int) -> int
+	def insertChild(self,child,index): # (Element, int) -> int (-1 as index appends)
 		if index<=len(self.children) and index>=0:
 			self.children.insert(index,child)
 			child.adopted(self)
@@ -192,6 +192,17 @@ class MultiContainer(Container): # children have to implement render()
 
 	def __len__(self):
 		return len(self.children)
+
+class GenMultiContainer(MultiContainer):
+	def whatChild(self,x,y,ph,pw):
+		innards=self.innards()
+		yield from innards.whatChild(x,y,ph,pw)
+
+	def size(self):
+		return self.innards().size()
+
+	def render(self,cnv,x,y,ph,pw):
+		self.innards().render(cnv,x,y,ph,pw)
 
 class GenContainer(Container):
 	def whatChild(self,x,y,ph,pw):
@@ -250,7 +261,7 @@ class ZStack(MultiContainer): # layers all children above each other
 			yield (child,(x,y,h,w))
 
 	def render(self,cnv,x,y,ph,pw):
-		for child,alloc in self.whatChild(x,y,h,w):
+		for child,alloc in self.whatChild(x,y,ph,pw):
 			child.render(cnv,*alloc)
 
 # class Alloc(MultiContainer): # percentages, absolutes and auto
@@ -450,6 +461,8 @@ class Box(Container): # adds box around child, style can be all special formatti
 			rh,rw=ph,pw
 		else:
 			rh,rw=self.child.size()
+			rh+=2
+			rw+=2
 		self.child.render(cnv,x+1,y+1,ph-2,pw-2)
 		cnv.cursor.goto(x,y)
 		cnv.sprint(self.style)
@@ -495,14 +508,14 @@ class Aligner(Container): # aligns child, (Element,alignH="right"|"middle",align
 			elif self.alignH=="middle":
 				x+=(pw-cw)//2
 			else:
-				raise ValueError(f"Invalid align ({self.alignH=})")
+				raise ValueError(f"Invalid align ({self.alignH})")
 		if self.alignV:
 			if self.alignV=="bottom":
 				y+=ph-ch
 			elif self.alignV=="middle":
 				y+=(ph-ch)//2
 			else:
-				raise ValueError(f"Invalid align ({self.alignV=})")
+				raise ValueError(f"Invalid align ({self.alignV})")
 		assert(ph>=ch)
 		assert(pw>=cw)
 		yield (self.child,(x,y,(ch if self.alignV else ph),(cw if self.alignH else pw)))

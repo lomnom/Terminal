@@ -413,7 +413,7 @@ class Roller(IvEl,tui.GenElement):
 
 	def onChange(self,onChange):
 		self._onChange=onChange
-
+next
 	def key(self,key):
 		if self.position is None:
 			return
@@ -451,7 +451,7 @@ class Roller(IvEl,tui.GenElement):
 					.align(alignH="middle")
 			)
 		else:
-			return tui.Text(f"< `{self.up}` |{self.value}| `{self.down}` >")
+			return tui.Text(f"< `{self.down}` |{self.value}| `{self.up}` >")
 
 	@property
 	def value(self):

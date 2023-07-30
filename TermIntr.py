@@ -162,12 +162,25 @@ class Group(IvContainer): #group of interactives
 class Switcher(IvContainer):
 	def __init__(self,selected,*children):
 		self.children=[]
-		self.selected=children[selected]
 		for child in children:
 			self.addIChild(child)
+			child.disable()
+		if selected is not None:
+			self.selected=children[selected]
+		else:
+			self.selected=None
+
+	def passKey(self,key):
+		return True
 
 	def select(self,index):
-		self.selected.disable()
+		if index is None or (not self.children):
+			self.selected.disable()
+			self.selected=None
+			return
+		index=index%len(self.children)
+		if self.selected is not None:
+			self.selected.disable()
 		self.selected=self.children[index]
 		self.selected.enable()
 
@@ -176,6 +189,15 @@ class Switcher(IvContainer):
 			return True
 		else:
 			return False
+
+	def orphanIChild(self,child):
+		if self.selected is not None:
+			index=self.children.index(self.selected)
+		else:
+			index=None
+		super().orphanIChild(child)
+		if index is not None:
+			self.select(index)
 
 class Nothing(Interactive):
 	def __init__(self):
@@ -289,13 +311,14 @@ class Button(IvEl,tui.GenContainer):
 		self._onToggle=func
 
 class Textbox(IvEl,tui.GenElement):
-	def __init__(self,enter,cursor=0,box=None,text=""):
+	def __init__(self,enter,cursor=0,box=None,text="",focusOnLone=False):
 		self.box=box
 		self.text=text
 		self.typing=False
 		self.enter=enter
 		self._onPress=None
 		self._onEnterExit=None
+		self.focusOnLone=focusOnLone
 		self.cursor=0
 
 	def innards(self):
@@ -334,6 +357,7 @@ class Textbox(IvEl,tui.GenElement):
 	def key(self,key):
 		if key==self.enter:
 			self.setFocus(not self.typing)
+
 			return
 
 		if not self.typing:
@@ -370,12 +394,13 @@ class Textbox(IvEl,tui.GenElement):
 
 	def enable(self):
 		self.enabled=True
-		lone=True
-		for child in self.iparent.children:
-			if self.iparent.enabling(child) and not child==self:	
-				lone=False
-				break
-		self.setFocus(lone)
+		if self.focusOnLone:
+			lone=True
+			for child in self.iparent.children:
+				if self.iparent.enabling(child) and not child==self:	
+					lone=False
+					break
+			self.setFocus(lone)
 
 class Roller(IvEl,tui.GenElement):
 	def __init__(self,values,position,axis,up="up",down="down"):
@@ -384,17 +409,35 @@ class Roller(IvEl,tui.GenElement):
 		self.up=up
 		self.vertical=(axis=="vertical")
 		self.down=down
-		self._onChange=None
+		self._onChange=lambda *args: None
 
 	def onChange(self,onChange):
 		self._onChange=onChange
 
 	def key(self,key):
+		if self.position is None:
+			return
 		if key==self.up:
-			self.position+=1
+			position=self.position+1
 		elif key==self.down:
-			self.position-=1
-		self.position=self.position%len(self.values)
+			position=self.position-1
+		else:
+			return
+		self.setPosition(position)
+
+	def removeIndex(self,index):
+		self.values.pop(index)
+		self.setPosition(self.position)
+
+	def addValue(self,value):
+		self.values.append(value) 
+
+	def setPosition(self,position):
+		if position is not None:
+			self.position=position%len(self.values)
+		if not self.values:
+			self.position=None
+		self._onChange(self.position,self.value)
 		self.root().frames.schedule(0,tui.sched.framesLater) 
 
 	def innards(self):
@@ -412,7 +455,10 @@ class Roller(IvEl,tui.GenElement):
 
 	@property
 	def value(self):
-		return self.values[self.position]
+		if self.position is not None:
+			return self.values[self.position]
+		else:
+			return "None"
 
 #get all interactives in an element
 def allInteractives(element):

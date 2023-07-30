@@ -206,17 +206,17 @@ class Generated:
 	def innards(self):
 		raise NotImplementedError
 
-class GenMultiContainer(MultiContainer,Generated):
+class GenMultiContainer(Generated,MultiContainer):
 	def whatChild(self,x,y,ph,pw):
 		innards=self.innards()
 		yield from innards.whatChild(x,y,ph,pw)
 
-class GenContainer(Container,Generated):
+class GenContainer(Generated,Container):
 	def whatChild(self,x,y,ph,pw):
 		innards=self.innards()
 		yield from innards.whatChild(x,y,ph,pw)
 
-class GenElement(Element,Generated):
+class GenElement(Generated,Element):
 	pass
 
 # actual elements
@@ -228,14 +228,32 @@ class ElementSwitcher(MultiContainer): # shows child no. self.visible
 			self.setChild(child,index)
 		self.visible=visible
 
+	def switchTo(self,index):
+		self.visible=index
+
 	def size(self):
-		return self.children[self.visible].size()
+		if self.visible is not None:
+			return self.children[self.visible].size()
+		else:
+			return (0,0)
 
 	def whatChild(self,x,y,h,w):
-		yield (self.child,(x,y,h,w))
+		if self.visible is not None:
+			yield (self.children[self.visible],(x,y,h,w))
 
 	def render(self,cnv,x,y,ph,pw):
-		self.children[self.visible].render(cnv,x,y,ph,pw)
+		if self.visible is not None:
+			self.children[self.visible].render(cnv,x,y,ph,pw)
+
+	def disownChild(self,child): 
+		super().disownChild(child)
+		self.switchTo(self.visible)
+
+	def switchTo(self,index):
+		if len(self.children):
+			self.visible=index%len(self.children)
+		else:
+			self.visible=None
 
 class ZStack(MultiContainer): # layers all children above each other
 	def __init__(self,*children):

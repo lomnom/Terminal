@@ -297,15 +297,15 @@ class Button(IvEl,tui.GenContainer):
 		if key==self.activator:
 			self.activated=not self.activated
 			self.root().frames.schedule(0,tui.sched.framesLater) 
-			if self._onToggle:
-				self._onToggle(self.activated)
-
 			if not self.toggle:
 				def deactivate(*_):
 					self.activated=False
 				self.root().frames.schedule(
 					0.1,tui.sched.secondsLater,callback=deactivate
 				)
+			
+			if self._onToggle:
+				self._onToggle(self.activated)
 
 	def onToggle(self,func):
 		self._onToggle=func
@@ -436,10 +436,10 @@ class Roller(IvEl,tui.GenElement):
 		self.values.append(value) 
 
 	def setPosition(self,position):
-		if position is not None:
-			self.position=position%len(self.values)
 		if not self.values:
 			self.position=None
+		elif position is not None:
+			self.position=position%len(self.values)
 		self._onChange(self.position,self.value)
 		self.root().frames.schedule(0,tui.sched.framesLater) 
 

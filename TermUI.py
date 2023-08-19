@@ -259,7 +259,7 @@ class ElementSwitcher(MultiContainer): # shows child no. self.visible
 		self.switchTo(self.visible)
 
 	def switchTo(self,index):
-		if len(self.children):
+		if len(self.children) and index is not None:
 			self.visible=index%len(self.children)
 		else:
 			self.visible=None

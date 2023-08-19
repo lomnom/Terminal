@@ -170,6 +170,7 @@ def sprint(data,cursor,cnv,inc=(1,0),newline=(0,1)):
 	processFg=False #take colour expression next "[colour]"
 	processBg=False 
 	escaped=False #ignore next special character 
+	stickyEsc=False #ignore all special characters
 	pos=0 #position in string
 	line=0 #line number (starts from 0!)
 	beginY=cursor.y #initial cursor position
@@ -196,6 +197,12 @@ def sprint(data,cursor,cnv,inc=(1,0),newline=(0,1)):
 				raise SyntaxError(
 					f"\\f or \\b not continued with [colour] in string `{data}` at position {pos}"
 				)
+
+		if data[pos]=="\033":
+			pos+=1
+			stickyEsc=not stickyEsc
+			escaped=stickyEsc
+			continue
 
 		if not escaped: #special characters (should not directly add characters)
 			#find colour modifiers
@@ -227,10 +234,12 @@ def sprint(data,cursor,cnv,inc=(1,0),newline=(0,1)):
 				pos+=1
 				continue
 		else:
-			escaped=False
+			escaped=False or stickyEsc
 
 		# normal characters (should be the only thing displayed)
-		cursor.addCh(data[pos],cnv)
+		char=data[pos]
+		if char!=" ":
+			cursor.addCh(data[pos],cnv)
 		cursor+=inc
 		pos+=1
 
@@ -378,18 +387,20 @@ def setup_thread_excepthook():
 setup_thread_excepthook()
 # ========================================================================
 
-import sys, os
+import os
 from time import sleep
+import traceback
 DIED=False #if the program died
-def canvasApp(main): #TODO: make it into global exception bracket
+NOCTRLC_CANVAS=True #for debug
+def canvasApp(main): 
 	global DIED
 	term.raw()
-	term.noctrlc()
+	NOCTRLC_CANVAS and term.noctrlc()
 	term.canvas()
 	term.clear()
 	term.nbStdin()
 
-	def exceptHook(exception,value,traceback):
+	def exceptHook(e,v,t):
 		global DIED
 		term.clear()
 		term.uncanvas()
@@ -398,7 +409,12 @@ def canvasApp(main): #TODO: make it into global exception bracket
 		term.bStdin()
 		DIED=True
 		sleep(0.1)
-		sys.__excepthook__(exception, value, traceback)
+		sys.__excepthook__(e, v, t)
+		print()
+		for th in threading.enumerate():
+		    print(th)
+		    traceback.print_stack(sys._current_frames()[th.ident])
+		    print()
 		os._exit(-1)
 	sys.excepthook=exceptHook
 
@@ -410,5 +426,5 @@ def canvasApp(main): #TODO: make it into global exception bracket
 	term.bStdin()
 	term.clear()
 	term.uncanvas()
-	term.ctrlc()
+	NOCTRLC_CANVAS and term.ctrlc()
 	term.unraw()

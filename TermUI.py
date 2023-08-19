@@ -23,6 +23,9 @@ def lagCallback(frames,lag):
 	# raise ValueError(f"Lagging! ({lag=}s behind)")
 	pass #modify
 
+class NoFrame: #returned from frame callback to signal that no render needed
+	pass
+
 class Frames:
 	def __init__(self,fps,root):
 		self.stopwatch=trm.Stopwatch()
@@ -32,11 +35,13 @@ class Frames:
 		self.requested={}
 		self.root=root
 
+	shouldRender=lambda *args: None  
+
 	@property
 	def delay(self):
 		return 1/self.fps
 
-	def schedule(self,value,variety,callback=None):
+	def schedule(self,value,variety,callback=None): #add conditional frame
 		frame=None
 		if variety==sched.secondsLater:
 			frame=self.frame+value*self.fps
@@ -53,6 +58,8 @@ class Frames:
 		callbacks=self.requested[frame]
 		if callback:
 			callbacks.append(callback)
+		else:
+			callbacks.append(self.shouldRender)
 
 	def run(self):
 		self.stopwatch.start()
@@ -60,18 +67,20 @@ class Frames:
 		while self.running and not tc.DIED:
 			lag=False
 			try:
-				sleep(self.delay*self.frame-self.stopwatch.time())
+				sleep(self.delay*self.frame-self.stopwatch.time()) #pray all same-frame schedules happen here.
 			except ValueError:
 				lagCallback(self,self.stopwatch.time()-self.delay*self.frame) #Called on lag
 				lag=self.stopwatch.time()-self.delay*self.frame
 			if self.frame in self.requested:
 				callbacks=self.requested[self.frame]
+				result=False
 				for callback in callbacks:
-					callback(self)
-				if lag:
-					self.root.render(debugText=f"Lagging! ({round(lag*100000)/100}ms behind)")
-				else:
-					self.root.render()
+					result=result or (callback(self) is not NoFrame)
+				if result:
+					if lag:
+						self.root.render(debugText=f"Lagging! ({round(lag*100000)/100}ms behind)")
+					else:
+						self.root.render()
 				del self.requested[self.frame]
 			self.frame+=1
 
@@ -560,6 +569,20 @@ class Wrapper(Container):
 		else:
 			return (0,0)
 
+circles="○◔◑◕●"
+class FrameRoller(Element):
+	def __init__(self):
+		self.count=0
+
+	def size(self):
+		return (1,1)
+
+	def render(self,cnv,x,y,ph,pw):
+		cnv.cursor.goto(x,y)
+		cnv.print(circles[self.count%len(circles)])
+		self.count+=1
+	
+
 Element.extensions['wrap']=lambda self: lambda *args,**kwargs: Wrapper(self,*args,**kwargs)
 
 class Text(Element): # just text
@@ -605,16 +628,19 @@ class Text(Element): # just text
 		self.raw and cnv.print(self.text,inc=self.inc)
 
 class Seperator(Element):
-	def __init__(self,orientation,character):
+	def __init__(self,orientation,character,style=None):
 		self.v= orientation=='vertical'
 		self.character=character
+		self.style=style
 
 	def render(self,cnv,x,y,ph,pw):
 		cnv.cursor.goto(x,y)
+		self.style and cnv.sprint(self.style)
 		if self.v:
 			cnv.line(self.character,ph,inc=(0,1))
 		else:
 			cnv.line(self.character,pw)
+		self.style and cnv.sprint(self.style)
 
 	def size(self):
 		return (0,1) if self.v else (1,0)

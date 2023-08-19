@@ -310,6 +310,9 @@ class Button(IvEl,tui.GenContainer):
 	def onToggle(self,func):
 		self._onToggle=func
 
+	def onPress(self,func):
+		self._onToggle=func
+
 class Textbox(IvEl,tui.GenElement):
 	def __init__(self,enter,cursor=0,box=None,text="",focusOnLone=False):
 		self.box=box

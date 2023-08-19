@@ -141,7 +141,8 @@ def main(cnv):
 				).pad(left=1,right=1),
 				tui.lines.thin,label="*Remove a priority*"
 			),
-			quitButton
+			quitButton,
+			tui.Text("\f[232]\b[10]L\b[11]B\b[9]X\b[13]V\b[12]R\b[14]K\b\f[.]")
 		).align(alignH="middle",alignV="middle")
 	)
 

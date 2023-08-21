@@ -166,7 +166,7 @@ def procColor(color):
 	assert(color=="default" or color<256) 
 	return color
 
-def sprint(data,cursor,cnv,inc=(1,0),newline=(0,1)):
+def sprint(data,cursor,cnv,inc=(1,0),newline=(0,1),opaque=False):
 	processFg=False #take colour expression next "[colour]"
 	processBg=False 
 	escaped=False #ignore next special character 
@@ -238,7 +238,7 @@ def sprint(data,cursor,cnv,inc=(1,0),newline=(0,1)):
 
 		# normal characters (should be the only thing displayed)
 		char=data[pos]
-		if char!=" ":
+		if opaque or char!=" ":
 			cursor.addCh(data[pos],cnv)
 		cursor+=inc
 		pos+=1
@@ -306,8 +306,8 @@ class Canvas:
 		for row in range(y,y+h):
 			self.matrix[row][x:x+w]=l
 
-	def sprint(self,data,inc=(1,0)):
-		return sprint(data,self.cursor,self,inc=inc)
+	def sprint(self,data,inc=(1,0),opaque=False):
+		return sprint(data,self.cursor,self,inc=inc,opaque=opaque)
 
 def ssize(data,inc=(1,0)):
 	return sprint(data,fakecursor,None,inc=inc)
@@ -409,12 +409,12 @@ def canvasApp(main):
 		term.bStdin()
 		DIED=True
 		sleep(0.1)
-		sys.__excepthook__(e, v, t)
-		print()
 		for th in threading.enumerate():
 		    print(th)
 		    traceback.print_stack(sys._current_frames()[th.ident])
 		    print()
+		sys.__excepthook__(e, v, t)
+		print()
 		os._exit(-1)
 	sys.excepthook=exceptHook
 

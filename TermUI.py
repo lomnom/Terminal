@@ -508,7 +508,7 @@ class Box(Container): # adds box around child, style can be all special formatti
 				cnv.cursor.goto(int(x+(cw-len(self.label))/2 ),y)
 			cnv.print(self.line.tr)
 			cnv.cursor.nostyle()
-			cnv.sprint(self.label)
+			cnv.sprint(self.label,opaque=True)
 			cnv.sprint(self.style)
 			cnv.print(self.line.tl)
 		cnv.cursor.nostyle()
@@ -586,10 +586,11 @@ class FrameRoller(Element):
 Element.extensions['wrap']=lambda self: lambda *args,**kwargs: Wrapper(self,*args,**kwargs)
 
 class Text(Element): # just text
-	def __init__(self,text,inc=(1,0),raw=False):
+	def __init__(self,text,inc=(1,0),raw=False,opaque=False):
 		self.raw=raw
 		self._inc=inc
 		self.text=text
+		self.opaque=opaque
 
 	@property
 	def text(self):
@@ -624,7 +625,7 @@ class Text(Element): # just text
 
 	def render(self,cnv,x,y,ph,pw):
 		cnv.cursor.goto(x,y)
-		self.raw or cnv.sprint(self.text,inc=self.inc) and cnv.cursor.nostyle()
+		self.raw or cnv.sprint(self.text,inc=self.inc,opaque=self.opaque) and cnv.cursor.nostyle()
 		self.raw and cnv.print(self.text,inc=self.inc)
 
 class Seperator(Element):

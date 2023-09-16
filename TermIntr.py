@@ -290,6 +290,7 @@ class Button(IvEl,tui.GenContainer):
 				self.child,
 				tui.Text(f"`({self.activator})`")
 					.pad(left=1)
+					.align(alignV="bottom")
 			)
 		)
 
@@ -335,7 +336,7 @@ class Textbox(IvEl,tui.GenElement):
 					"|"+self.text[self.cursor]+"|" +\
 					self.text[self.cursor+1:]+enterText)
 			else:
-				return tui.Text(self.text+f" `(enter w/{self.enter})`")
+				return tui.Text(self.text+f" `(edit w/{self.enter})`")
 		else:
 			if self.enabled:
 				if self.typing:

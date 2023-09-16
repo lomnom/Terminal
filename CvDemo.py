@@ -22,7 +22,7 @@ def main(term):
 		term.sprint("    - \f[cyan]cy\f[default]\b[cyan]an\b[default]\n")
 		term.sprint("    - \f[default]defa\f[default]\b[default]ult\b[default]\n")
 		if key:
-			term.sprint(f"Received keyboard key '{key}'\n")
+			term.print(f"Received keyboard key '{key}'\n")
 		term.render() # push buffer
 		term.cursor.goto(0,0)
 		term.clear()

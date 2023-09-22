@@ -302,7 +302,7 @@ floor=lambda n: round(n-0.5)
 class Stack(MultiContainer):
 	def __init__(self,axis,*children):
 		self.children=[]
-		self.percentages={}
+		self.percentages={} #0-100
 		assert(axis=="vertical" or axis=="horizontal")
 		for index,child in enumerate(children):
 			if type(child) is tuple:
@@ -540,8 +540,11 @@ class Aligner(Container): # aligns child, (Element,alignH="right"|"middle",align
 				y+=(ph-ch)//2
 			else:
 				raise ValueError(f"Invalid align ({self.alignV})")
-		assert(ph>=ch)
-		assert(pw>=cw)
+		try:
+			assert(ph>=ch)
+			assert(pw>=cw)
+		except:
+			raise AssertionError(str(type(self.child))+str((ph>=ch,pw>=cw,ph,pw,ch,cw,self.size())))
 		yield (self.child,(x,y,(ch if self.alignV else ph),(cw if self.alignH else pw)))
 
 	def render(self,cnv,x,y,ph,pw):

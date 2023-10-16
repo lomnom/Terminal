@@ -27,13 +27,14 @@ class NoFrame: #returned from frame callback to signal that no render needed
 	pass
 
 class Frames:
-	def __init__(self,fps,root):
+	def __init__(self,fps,root,resize=True):
 		self.stopwatch=trm.Stopwatch()
 		self.fps=fps
 		self.running=True
 		self.frame=1
 		self.requested={}
 		self.root=root
+		trm.sizereceivers[hash(self)]=lambda r,c: self.schedule(1,sched.framesLater)
 
 	shouldRender=lambda *args: None  
 
@@ -67,7 +68,8 @@ class Frames:
 		while self.running and not tc.DIED:
 			lag=False
 			try:
-				sleep(self.delay*self.frame-self.stopwatch.time()) #pray all same-frame schedules happen here.
+				#pray all same-frame schedules happen here.
+				sleep(self.delay*self.frame-self.stopwatch.time())
 			except ValueError:
 				lagCallback(self,self.stopwatch.time()-self.delay*self.frame) #Called on lag
 				lag=self.stopwatch.time()-self.delay*self.frame
@@ -572,6 +574,8 @@ class Wrapper(Container):
 		else:
 			return (0,0)
 
+Element.extensions['wrap']=lambda self: lambda *args,**kwargs: Wrapper(self,*args,**kwargs)
+
 circles="○◔◑◕●"
 class FrameRoller(Element):
 	def __init__(self):
@@ -584,9 +588,67 @@ class FrameRoller(Element):
 		cnv.cursor.goto(x,y)
 		cnv.print(circles[self.count%len(circles)])
 		self.count+=1
-	
 
-Element.extensions['wrap']=lambda self: lambda *args,**kwargs: Wrapper(self,*args,**kwargs)
+class BarTheme:
+	def __init__(self,full,start,end):
+		self.full=full
+		self.start=start
+		self.end=end
+
+class bars:
+	horizbar=BarTheme(
+		tc.Char(gradients.horizbar[-1]),
+		list(map(lambda char: tc.Char(char,flags={'r'}),gradients.horizbar[1:-1])),
+		list(map(lambda char: tc.Char(char),gradients.horizbar[1:-1]))
+	)
+	vertbar=BarTheme(
+		tc.Char(gradients.vertbar[-1]),
+		list(map(lambda char: tc.Char(char),gradients.vertbar[1:-1])),
+		list(map(lambda char: tc.Char(char,flags={'r'}),gradients.vertbar[1:-1]))
+	)
+	block=BarTheme(
+		tc.Char(gradients.block[-1]),
+		list(map(lambda char: tc.Char(char),gradients.block[1:-1]))[::-1],
+		list(map(lambda char: tc.Char(char),gradients.block[1:-1]))
+	)
+
+floor=lambda n: round(n-0.5)
+ceil=lambda n: round(n+0.5)
+class Bar(Element): #top to bottom, left to right
+	def __init__(self,chars,start,end,orientation="horizontal"): #start and end percentages from 0-1
+		self.v=(orientation=="vertical")
+		self.start=start
+		self.end=end
+		self.chars=chars
+
+	def size(self):
+		return (1,1)
+
+	def findBar(self,percent,gradient): #percent<1
+		choices=len(gradient)
+		index=floor(percent*choices)
+		return gradient[index]
+
+	def render(self,cnv,x,y,ph,pw):
+		cnv.cursor.goto(x,y)
+		unit=1/(ph if self.v else pw)
+		frontSpace=self.start/unit
+		frontPadding=floor(frontSpace)
+		start=self.findBar(frontSpace-frontPadding,self.chars.start)
+		middle=floor(self.end/unit)-ceil(self.start/unit)
+		end=self.findBar((self.end/unit)%1,self.chars.end)
+
+		step=(0 if self.v else 1,1 if self.v else 0)
+		cnv.cursor+=(0 if self.v else frontPadding,frontPadding if self.v else 0)
+		if frontSpace-frontPadding != 0:
+			cnv.cursor.putCh(start,cnv)
+			cnv.cursor+=step
+			middle+=1
+		for _ in range(middle):
+			cnv.cursor.putCh(self.chars.full,cnv)
+			cnv.cursor+=step
+		if (self.end/unit)%1 != 0:
+			cnv.cursor.putCh(end,cnv)
 
 class Text(Element): # just text
 	def __init__(self,text,inc=(1,0),raw=False,opaque=False):

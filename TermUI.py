@@ -636,7 +636,7 @@ class Bar(Element): #top to bottom, left to right
 
 	def findBar(self,percent,gradient,full):
 		choices=len(gradient)
-		index=floor(percent*choices)
+		index=round(percent*choices)
 		if index!=choices:
 			return gradient[index]
 		else:

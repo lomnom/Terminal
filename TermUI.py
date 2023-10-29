@@ -349,7 +349,7 @@ class Stack(MultiContainer):
 				stacking=((self.percentages[child]/100)*freeSpace)+inaccuracy
 				if stacking>=sizes[child][not self.vertical]:
 					inaccuracy+=stacking%1
-					stacking=floor(stacking)
+					stacking=round(stacking)
 				else:
 					stacking=sizes[child][not self.vertical]
 			if self.vertical:
@@ -670,16 +670,26 @@ class Scroller(Container):
 		self.setChild(child)
 		self.cx=cx
 		self.cy=cy
+		self.ph=1
+		self.pw=1
 		self.buffer=tc.Canvas(1,1)
+
+	def getView(self):
+		ch,cw=self.child.size()
+		cx=self.cx%cw
+		cy=self.cy%ch
+		return (cx,cy,upperbound(ch-cy,self.ph),upperbound(cw-cx,self.pw),ch,cw)
 
 	def render(self,cnv,x,y,ph,pw):
 		ch,cw=self.child.size()
 		self.buffer.resize(ch,cw)
 		self.buffer.clear()
 		self.child.render(self.buffer,0,0,ch,cw)
-		# #x and y are where to render self. sx and sy are top left of rendered internal area
-		# def render(self,cnv,x,y,ph,pw,sx,sy): #cnv is canvas, ph and pw is the size to render self
-		self.buffer.render(cnv,0,0,upperbound(ch-self.cy,ph),upperbound(cw-self.cx,pw),self.cx,self.cy)
+		cx=self.cx%cw
+		cy=self.cy%ch
+		self.ph=ph # issue: the size will always be one frame behind
+		self.pw=pw
+		self.buffer.render(cnv,x,y,upperbound(ch-cy,ph),upperbound(cw-cx,pw),cx,cy)
 
 	def whatChild(self,x,y,h,w):
 		ch,cw=self.child.size()
@@ -687,6 +697,36 @@ class Scroller(Container):
 
 	def size(self):
 		return (0,0)
+
+class ScrollBox(GenContainer): # [up,down,left,right]
+	def __init__(self,child,style=[False,True,True,False],cx=0,cy=0):
+		self.scroller=Scroller(child,cx=0,cy=0)
+		self.setChild(self.scroller)
+		self.vertBar=Bar(bars.vertbar,0,0,"vertical")
+		self.horizBar=Bar(bars.horizbar,0,0,"horizontal")
+		self.style=style
+
+	def innards(self):
+		stack=VStack(
+			*([self.horizBar] if self.style[0] else []),
+			(HStack(
+				*([self.vertBar] if self.style[2] else []),
+				(self.scroller,100),
+				*([self.vertBar] if self.style[3] else [])
+			),100),
+			*([self.horizBar] if self.style[1] else [])
+		)
+		return stack
+
+	def render(self,cnv,x,y,ph,pw):
+		self.scroller.ph=ph-self.style[0]-self.style[1]
+		self.scroller.pw=pw-self.style[2]-self.style[3]
+		cx,cy,vh,vw,ch,cw=self.scroller.getView()
+		self.vertBar.start=cy/ch
+		self.vertBar.end=(cy+vh)/ch
+		self.horizBar.start=cx/cw
+		self.horizBar.end=(cx+vw)/cw
+		self.innards().render(cnv,x,y,ph,pw)
 
 class Text(Element): # just text
 	def __init__(self,text,inc=(1,0),raw=False,opaque=False):

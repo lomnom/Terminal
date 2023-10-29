@@ -412,13 +412,14 @@ class Expander(Container): # Expand child to set size
 
 	def size(self):
 		ch,cw=self.child.size()
-		return ((ch if (not self.expandV) or (self.expandV<ch) else self.expandV),
-		        (cw if (not self.expandH) or (self.expandH<cw) else self.expandH))
+		return ((ch if (not self.expandV) else self.expandV),
+		        (cw if (not self.expandH) else self.expandH))
 
 
 	def whatChild(self,x,y,ph,pw):
 		yield (self.child,(x,y,
-			*self.size())
+			(ph if (not self.expandV) else self.expandV),
+		    (pw if (not self.expandH) else self.expandH))
 		)
 
 	def render(self,cnv,x,y,ph,pw):
@@ -676,8 +677,14 @@ class Scroller(Container):
 
 	def getView(self):
 		ch,cw=self.child.size()
-		cx=self.cx%cw
-		cy=self.cy%ch
+		if cw-self.pw <= 0:
+			cx=0
+		else:
+			cx=self.cx%(cw-self.pw)
+		if ch-self.ph <= 0:
+			cy=0
+		else:
+			cy=self.cy%(ch-self.ph)
 		return (cx,cy,upperbound(ch-cy,self.ph),upperbound(cw-cx,self.pw),ch,cw)
 
 	def render(self,cnv,x,y,ph,pw):
@@ -685,8 +692,10 @@ class Scroller(Container):
 		self.buffer.resize(ch,cw)
 		self.buffer.clear()
 		self.child.render(self.buffer,0,0,ch,cw)
-		cx=self.cx%cw
-		cy=self.cy%ch
+		if cw-self.pw <= 0: cx=0
+		else: cx=self.cx%(cw-pw)
+		if ch-self.ph <= 0: cy=0
+		else: cy=self.cy%(ch-ph)
 		self.ph=ph # issue: the size will always be one frame behind
 		self.pw=pw
 		self.buffer.render(cnv,x,y,upperbound(ch-cy,ph),upperbound(cw-cx,pw),cx,cy)
@@ -698,20 +707,29 @@ class Scroller(Container):
 	def size(self):
 		return (0,0)
 
-class ScrollBox(GenContainer): # [up,down,left,right]
-	def __init__(self,child,style=[False,True,True,False],cx=0,cy=0):
+class ScrollBox(GenContainer): # [up,down,left,right] AND [vertical,horizontal]
+	def __init__(self,child,style=[False,True,True,False],cx=0,cy=0,axes=[True,True]):
 		self.scroller=Scroller(child,cx=0,cy=0)
 		self.setChild(self.scroller)
 		self.vertBar=Bar(bars.vertbar,0,0,"vertical")
 		self.horizBar=Bar(bars.horizbar,0,0,"horizontal")
 		self.style=style
+		self.axes=axes
 
 	def innards(self):
+		if self.axes!=[True,True]:
+			ch,cw=self.scroller.child.size()
 		stack=VStack(
 			*([self.horizBar] if self.style[0] else []),
 			(HStack(
 				*([self.vertBar] if self.style[2] else []),
-				(self.scroller,100),
+				(
+					self.scroller
+						.expand(
+							expandH=(None if self.axes[1] else cw),
+							expandV=(None if self.axes[0] else ch)
+						)
+				,100),
 				*([self.vertBar] if self.style[3] else [])
 			),100),
 			*([self.horizBar] if self.style[1] else [])
@@ -719,8 +737,15 @@ class ScrollBox(GenContainer): # [up,down,left,right]
 		return stack
 
 	def render(self,cnv,x,y,ph,pw):
-		self.scroller.ph=ph-self.style[0]-self.style[1]
-		self.scroller.pw=pw-self.style[2]-self.style[3]
+		ch,cw=self.scroller.child.size()
+		if self.axes[0]:
+			self.scroller.ph=ph-self.style[0]-self.style[1]
+		else:
+			self.scroller.ph=ch
+		if self.axes[1]:
+			self.scroller.pw=pw-self.style[2]-self.style[3]
+		else:
+			self.scroller.pw=cw
 		cx,cy,vh,vw,ch,cw=self.scroller.getView()
 		self.vertBar.start=cy/ch
 		self.vertBar.end=(cy+vh)/ch

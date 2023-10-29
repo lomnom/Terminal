@@ -269,20 +269,27 @@ class Canvas:
 				c.flags.clear()
 
 	def resize(self,rows,cols):
-		if rows>len(self.matrix):
-			for _ in range(rows-len(self.matrix)):
+		currRows=len(self.matrix)
+		if rows==currRows:
+			pass
+		elif rows>currRows:
+			for _ in range(currRows,rows):
 				self.matrix+=[[]]
 				for _ in range(term.columns):
 					self.matrix[-1]+=[Char(self.filler)]
 		else:
 			self.matrix=self.matrix[:rows]
 
-		if cols>len(self.matrix[0]):
-			for col in range(len(self.matrix)):
-				for _ in range(cols-len(self.matrix[col])):
-					self.matrix[col]+=[Char(self.filler)]
+		currRows=len(self.matrix)
+		currCols=0 if not self.matrix else len(self.matrix[0])
+		if cols==currCols:
+			pass
+		elif cols>currCols:
+			for row in range(currRows):
+				for _ in range(currCols,cols):
+					self.matrix[row]+=[Char(self.filler)]
 		else:
-			for row in range(len(self.matrix)):
+			for row in range(currRows):
 				self.matrix[row]=self.matrix[row][:cols]
 
 	#x and y are where to render self. sx and sy are top left of rendered internal area

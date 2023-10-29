@@ -661,6 +661,33 @@ class Bar(Element): #top to bottom, left to right
 			cnv.cursor+=step
 		cnv.cursor.putCh(end,cnv)
 
+upperbound=lambda a,b: b if a>b else a
+lowerbound=lambda a,b: b if a<b else a 
+
+#cx and cy point to the child character rendered at the top left conner
+class Scroller(Container):
+	def __init__(self,child,cx=0,cy=0):
+		self.setChild(child)
+		self.cx=cx
+		self.cy=cy
+		self.buffer=tc.Canvas(1,1)
+
+	def render(self,cnv,x,y,ph,pw):
+		ch,cw=self.child.size()
+		self.buffer.resize(ch,cw)
+		self.buffer.clear()
+		self.child.render(self.buffer,0,0,ch,cw)
+		# #x and y are where to render self. sx and sy are top left of rendered internal area
+		# def render(self,cnv,x,y,ph,pw,sx,sy): #cnv is canvas, ph and pw is the size to render self
+		self.buffer.render(cnv,0,0,upperbound(ch-self.cy,ph),upperbound(cw-self.cx,pw),self.cx,self.cy)
+
+	def whatChild(self,x,y,h,w):
+		ch,cw=self.child.size()
+		yield (self.child,(x-self.cx,y-self.cy,ch,cw))
+
+	def size(self):
+		return (0,0)
+
 class Text(Element): # just text
 	def __init__(self,text,inc=(1,0),raw=False,opaque=False):
 		self.raw=raw

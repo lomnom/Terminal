@@ -692,22 +692,26 @@ class Scroller(Container):
 		ch,cw=self.child.size()
 		self.buffer.resize(ch,cw)
 		self.buffer.clear()
-		if cw-pw <= 0: cx=0
-		else: cx=self.cx%(cw-pw)
-		if ch-ph <= 0: cy=0
-		else: cy=self.cy%(ch-ph)
-		rh=upperbound(ch-cy,ph)
-		rw=upperbound(cw-cx,pw)
+
+		#assigning bounded values to the position to get rid of jitter is disgusting but
+		#neccessary
+		if cw-pw <= 0: self.cx=0
+		else: self.cx=self.cx%(cw-pw) 
+		if ch-ph <= 0: self.cy=0
+		else: self.cy=self.cy%(ch-ph)
+
+		rh=upperbound(ch-self.cy,ph)
+		rw=upperbound(cw-self.cx,pw)
 		cursor=self.buffer.cursor
-		cursor.limx=cx
-		cursor.limy=cy
+		cursor.limx=self.cx
+		cursor.limy=self.cy
 		cursor.limh=rh
 		cursor.limw=rw
 		self.child.render(self.buffer,0,0,ch,cw)
 		
 		self.ph=ph # issue: the size will always be one frame behind
 		self.pw=pw
-		self.buffer.render(cnv,x,y,rh,rw,cx,cy)
+		self.buffer.render(cnv,x,y,rh,rw,self.cx,self.cy)
 
 	def whatChild(self,x,y,h,w):
 		ch,cw=self.child.size()

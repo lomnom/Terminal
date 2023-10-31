@@ -604,7 +604,7 @@ class bars:
 	)
 	vertbar=BarTheme(
 		tc.Char(gradients.vertbar[-1]),
-		list(map(lambda char: tc.Char(char),gradients.vertbar[1:-1]))[::-1],
+		list(map(lambda char: tc.Char(char),gradients.vertbar[1:-1])),
 		list(map(lambda char: tc.Char(char,flags={'r'}),gradients.vertbar[1:-1]))[::-1]
 	)
 	block=BarTheme(
@@ -674,6 +674,7 @@ class Scroller(Container):
 		self.ph=1
 		self.pw=1
 		self.buffer=tc.Canvas(1,1)
+		self.buffer.cursor=tc.BoundedCursor(0,0,0,0, 0,0)
 
 	def getView(self):
 		ch,cw=self.child.size()
@@ -691,14 +692,22 @@ class Scroller(Container):
 		ch,cw=self.child.size()
 		self.buffer.resize(ch,cw)
 		self.buffer.clear()
-		self.child.render(self.buffer,0,0,ch,cw)
-		if cw-self.pw <= 0: cx=0
+		if cw-pw <= 0: cx=0
 		else: cx=self.cx%(cw-pw)
-		if ch-self.ph <= 0: cy=0
+		if ch-ph <= 0: cy=0
 		else: cy=self.cy%(ch-ph)
+		rh=upperbound(ch-cy,ph)
+		rw=upperbound(cw-cx,pw)
+		cursor=self.buffer.cursor
+		cursor.limx=cx
+		cursor.limy=cy
+		cursor.limh=rh
+		cursor.limw=rw
+		self.child.render(self.buffer,0,0,ch,cw)
+		
 		self.ph=ph # issue: the size will always be one frame behind
 		self.pw=pw
-		self.buffer.render(cnv,x,y,upperbound(ch-cy,ph),upperbound(cw-cx,pw),cx,cy)
+		self.buffer.render(cnv,x,y,rh,rw,cx,cy)
 
 	def whatChild(self,x,y,h,w):
 		ch,cw=self.child.size()

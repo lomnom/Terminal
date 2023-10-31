@@ -479,4 +479,22 @@ def allInteractives(element):
 		results+=allInteractives(element.child)
 	return results
 
+# inputs=[up,down,left,right], none if unbound
+def scrollerInput(scroller,frames,inputs=["up","down","left","right"]):
+	listener=Listener()
+	@listener.handle
+	def pressed(key):
+		if key==None:
+			return
+		if key==inputs[0]:
+			scroller.cy-=1
+		elif key==inputs[1]:
+			scroller.cy+=1
+		elif key==inputs[2]:
+			scroller.cx-=1
+		elif key==inputs[3]:
+			scroller.cx+=1
+		frames.schedule(1,tui.sched.framesLater) 
+	return listener
+
 tui.Element.extensions['interactives']=lambda self: lambda *args,**kwargs: allInteractives(self)

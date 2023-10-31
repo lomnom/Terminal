@@ -148,6 +148,28 @@ class Cursor:
 	def goY(self,y):
 		self.y=y
 
+#cursor that does not touch outside bounds
+class BoundedCursor(Cursor):
+	def __init__(self,x,y,h,w,*args,**kwargs):
+		super().__init__(*args,**kwargs)
+		self.limx=x #limits assumed to always be fully inside canvas
+		self.limy=y
+		self.limh=h
+		self.limw=w
+
+	def addCh(self,char,cnv):
+		if (((self.limx+self.limw)>self.x>=self.limx) and (self.limy+self.limh)>self.y>=self.limy):
+			cnv.matrix[self.y][self.x]=Char(
+				char,
+				fcolor=self.fcolor,
+				bcolor=self.bcolor,
+				flags=self.flags.copy()
+			)
+
+	def putCh(self,char,cnv):
+		if (((self.limx+self.w)>self.x>=self.limx) and (self.limy+self.h)>self.y>=self.limy):
+			cnv.matrix[self.y][self.x]=char.copy()
+
 class FakeCursor(Cursor):
 	def putCh(*_): pass
 	def addCh(*_): pass

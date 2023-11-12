@@ -711,7 +711,7 @@ class Scroller(Container):
 		
 		self.ph=ph # issue: the size will always be one frame behind
 		self.pw=pw
-		self.buffer.render(cnv,x,y,rh,rw,self.cx,self.cy)
+		self.buffer.renderGlass(cnv,x,y,rh,rw,self.cx,self.cy,filler=tc.Char(cnv.filler))
 
 	def whatChild(self,x,y,h,w):
 		ch,cw=self.child.size()

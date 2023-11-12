@@ -314,8 +314,19 @@ class Button(IvEl,tui.GenContainer):
 	def onPress(self,func):
 		self._onToggle=func
 
+def asciify(string,style="`_",exclude={'\b','\f','\n'}):
+	result=""
+	prev=0
+	for index,char in enumerate(string):
+		if (not 32<=ord(char)<=126) and (char not in exclude):
+			result+=string[prev:index]
+			prev=index+1
+			result+=style+hex(ord(char))+style
+	result+=string[prev:len(string)]
+	return result
+
 class Textbox(IvEl,tui.GenElement):
-	def __init__(self,enter,cursor=0,box=None,text="",focusOnLone=False):
+	def __init__(self,enter,cursor=0,box=None,text="",focusOnLone=False,formatter=lambda n:n):
 		self.box=box
 		self.text=text
 		self.typing=False
@@ -324,27 +335,41 @@ class Textbox(IvEl,tui.GenElement):
 		self._onEnterExit=None
 		self.focusOnLone=focusOnLone
 		self.cursor=0
+		self.formatter=formatter
+
+		self.display=None
+		self.oldText=None
 
 	def innards(self):
+		textOut="This should never appear (ti.Textbox.innards)"
 		if self.text:
 			if self.typing:
 				enterText=f" `(exit w/{self.enter})`"
 				if self.cursor==len(self.text) or self.text[self.cursor]=="\n":
-					return tui.Text(self.text[:self.cursor]+"^*\\_*^"+self.text[self.cursor:]+enterText)
+					textOut=self.text[:self.cursor]+"^*\\_*^"+self.text[self.cursor:]+enterText
 				else:
-					return tui.Text(self.text[:self.cursor] +\
+					textOut=self.text[:self.cursor] +\
 					"|"+self.text[self.cursor]+"|" +\
-					self.text[self.cursor+1:]+enterText)
+					self.text[self.cursor+1:]+enterText
 			else:
-				return tui.Text(self.text+f" `(edit w/{self.enter})`")
+				textOut=self.text+f" `(edit w/{self.enter})`"
 		else:
 			if self.enabled:
 				if self.typing:
-					return tui.Text(f"`Press {self.enter} to escape...`")
+					textOut=f"`Press {self.enter} to escape...`"
 				else:
-					return tui.Text(f"`Press {self.enter} to type...`")
+					textOut=f"`Press {self.enter} to type...`"
 			else:
-				return tui.Text("`Select to type...`")
+				textOut="`Select to type...`"
+		textOut=self.formatter(textOut)
+
+		if textOut==self.oldText:
+			self.oldText=textOut
+			return self.display
+		else:
+			self.oldText=textOut
+			self.display=tui.Text(textOut)
+			return self.display
 
 	def setFocus(self,state):
 		if state==self.typing:
@@ -361,7 +386,6 @@ class Textbox(IvEl,tui.GenElement):
 	def key(self,key):
 		if key==self.enter:
 			self.setFocus(not self.typing)
-
 			return
 
 		if not self.typing:

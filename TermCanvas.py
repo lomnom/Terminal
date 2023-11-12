@@ -50,6 +50,10 @@ class Char:
 	def copy(self):
 		return Char(self.char,self.fcolor,self.bcolor,self.flags.copy())
 
+	def equalTo(self,other):
+		return (self.char==other.char and self.fcolor==other.fcolor and
+		        self.bcolor==other.bcolor and self.flags==other.flags)
+
 	def __str__(self):
 		colors=(term.f256(self.fcolor) if not self.fcolor=="default" else term.fdefault) + \
 		       (term.b256(self.bcolor) if not self.bcolor=="default" else term.bdefault)
@@ -319,6 +323,16 @@ class Canvas:
 		for row in range(ph):
 			for col in range(pw):
 				cnv.matrix[y+row][x+col]=self.matrix[sy+row][sx+col].copy()
+
+	#dont render if character is default char
+	def renderGlass(self,cnv,x,y,ph,pw,sx,sy,filler=None):
+		if filler is None:
+			filler=Char(self.filler) 
+		for row in range(ph):
+			for col in range(pw):
+				char=self.matrix[sy+row][sx+col]
+				if not char.equalTo(filler):
+					cnv.matrix[y+row][x+col]=self.matrix[sy+row][sx+col].copy()
 
 	def print(self,data,inc=(1,0)):
 		for char in data:

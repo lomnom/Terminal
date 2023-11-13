@@ -342,6 +342,7 @@ class Textbox(IvEl,tui.GenElement):
 
 	def innards(self):
 		textOut="This should never appear (ti.Textbox.innards)"
+		self.cursor=self.cursor%(len(self.text)+1)
 		if self.text:
 			if self.typing:
 				enterText=f" `(exit w/{self.enter})`"

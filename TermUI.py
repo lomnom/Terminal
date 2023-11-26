@@ -139,6 +139,9 @@ blocks={
 	0b0000:" "
 }
 
+smallArrows=['↑','↓','→','←']
+filledArrows=['▲','▼','►','◄']
+
 # parent class of all elements
 
 class Element: # children must implement render

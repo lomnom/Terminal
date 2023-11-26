@@ -227,10 +227,15 @@ def sprint(data,cursor,cnv,inc=(1,0),newline=(0,1),opaque=False):
 		if data[pos]=="\033":
 			pos+=1
 			stickyEsc=not stickyEsc
-			escaped=stickyEsc
+			continue
+		elif data[pos]=="\n":
+			line+=1 #destination line
+			cursor.x=beginX+(newline[0]*line)
+			cursor.y=beginY+(newline[1]*line)
+			pos+=1
 			continue
 
-		if not escaped: #special characters (should not directly add characters)
+		if (not escaped) and (not stickyEsc): #special characters (should not directly add characters)
 			#find colour modifiers
 			if data[pos]=="\\": #evaluate escaping front slash character
 				escaped=True
@@ -240,27 +245,23 @@ def sprint(data,cursor,cnv,inc=(1,0),newline=(0,1),opaque=False):
 				pos+=2
 				processFg=True
 				processBg=True
+				escaped=False
 				continue
 			elif data[pos]=="\f":
 				pos+=1
 				processFg=True
+				escaped=False
 				continue
 			elif data[pos]=="\b":
 				pos+=1
 				processBg=True
+				escaped=False
 				continue
 			elif data[pos] in s2m:
 				cursor.flags^={s2m[data[pos]][0]}
 				pos+=1
+				escaped=False
 				continue
-			elif data[pos]=="\n":
-				line+=1 #destination line
-				cursor.x=beginX+(newline[0]*line)
-				cursor.y=beginY+(newline[1]*line)
-				pos+=1
-				continue
-		else:
-			escaped=False or stickyEsc
 
 		# normal characters (should be the only thing displayed)
 		char=data[pos]
@@ -268,6 +269,7 @@ def sprint(data,cursor,cnv,inc=(1,0),newline=(0,1),opaque=False):
 			cursor.addCh(data[pos],cnv)
 		cursor+=inc
 		pos+=1
+		escaped=False
 
 		if cursor.x>maxCoords[0]:
 			maxCoords[0]=cursor.x

@@ -314,19 +314,22 @@ class Button(IvEl,tui.GenContainer):
 	def onPress(self,func):
 		self._onToggle=func
 
-def asciify(string,style="`_",exclude={'\b','\f','\n'}):
+def asciify(string,exclude={'\b','\f','\n'}):
 	result=""
 	prev=0
 	for index,char in enumerate(string):
 		if (not 32<=ord(char)<=126) and (char not in exclude):
 			result+=string[prev:index]
 			prev=index+1
-			result+=style+hex(ord(char))+style
+			result+=hex(ord(char))
 	result+=string[prev:len(string)]
 	return result
 
+def styleless(string):
+	return "\033"+string+"\033"
+
 class Textbox(IvEl,tui.GenElement):
-	def __init__(self,enter,cursor=0,box=None,text="",focusOnLone=False,formatter=lambda n:n):
+	def __init__(self,enter,cursor=0,box=None,text="",focusOnLone=False,formatters=None):
 		self.box=box
 		self.text=text
 		self.typing=False
@@ -335,7 +338,10 @@ class Textbox(IvEl,tui.GenElement):
 		self._onEnterExit=None
 		self.focusOnLone=focusOnLone
 		self.cursor=0
-		self.formatter=formatter
+		if formatters is None:
+			self.formatters=[]
+		else:
+			self.formatters=formatters
 
 		self.display=None
 		self.oldText=None
@@ -362,7 +368,8 @@ class Textbox(IvEl,tui.GenElement):
 					textOut=f"`Press {self.enter} to type...`"
 			else:
 				textOut="`Select to type...`"
-		textOut=self.formatter(textOut)
+		for formatter in self.formatters:
+			textOut=formatter(textOut)
 
 		if textOut==self.oldText:
 			self.oldText=textOut

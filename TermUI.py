@@ -188,14 +188,14 @@ class MultiContainer(Container): # children have to implement render()
 		return self.insertChild(child,index)
 
 	def insertChild(self,child,index): # (Element, int) -> int (-1 as index appends)
-		if index<=len(self.children) and index>=0:
-			self.children.insert(index,child)
-			child.adopted(self)
-			return index
-		else:
+		if index==-1 or index<=len(self.children):
 			self.children.append(child)
 			child.adopted(self)
 			return len(self.children)-1
+		else: 
+			self.children.insert(index,child)
+			child.adopted(self)
+			return index
 
 	updateChild=setChild
 
@@ -352,7 +352,7 @@ class Stack(MultiContainer):
 				stacking=((self.percentages[child]/100)*freeSpace)+inaccuracy
 				if stacking>=sizes[child][not self.vertical]:
 					inaccuracy+=stacking%1
-					stacking=round(stacking)
+					stacking=int(stacking)
 				else:
 					stacking=sizes[child][not self.vertical]
 			if self.vertical:
@@ -770,9 +770,10 @@ class ScrollBox(GenContainer): # [up,down,left,right] AND [vertical,horizontal]
 		self.innards().render(cnv,x,y,ph,pw)
 
 class Text(Element): # just text
-	def __init__(self,text,inc=(1,0),raw=False,opaque=False):
+	def __init__(self,text,inc=(1,0),newline=(0,1),raw=False,opaque=False):
 		self.raw=raw
 		self._inc=inc
+		self._newline=newline
 		self.text=text
 		self.opaque=opaque
 
@@ -782,7 +783,7 @@ class Text(Element): # just text
 
 	def updateSize(self):
 		if not self.raw:
-			self._size=tc.ssize(self.text,inc=self.inc)
+			self._size=tc.ssize(self.text,inc=self.inc,newline=self.newline,opaque=self.opaque)
 		else:
 			text=self.text.split("\n")
 			self._size=(len(text),max([len(line) for line in text]))
@@ -791,6 +792,15 @@ class Text(Element): # just text
 	@text.setter
 	def text(self,value):
 		self._text=value
+		self.touched=True
+
+	@property
+	def newline(self):
+		return self._newline
+
+	@newline.setter
+	def inc(self,value):
+		self._newline=value
 		self.touched=True
 
 	@property
@@ -809,7 +819,8 @@ class Text(Element): # just text
 
 	def render(self,cnv,x,y,ph,pw):
 		cnv.cursor.goto(x,y)
-		self.raw or cnv.sprint(self.text,inc=self.inc,opaque=self.opaque) and cnv.cursor.nostyle()
+
+		self.raw or cnv.sprint(self.text,inc=self.inc,newline=self.newline,opaque=self.opaque) and cnv.cursor.nostyle()
 		self.raw and cnv.print(self.text,inc=self.inc)
 
 class Seperator(Element):
@@ -870,6 +881,6 @@ def multiAlter(obj,alterations,args=()):
 		value=alterations[alteration]
 		setattr(obj,alteration,value(obj,*args))
 
-Element.extensions['alter']=lambda self: lambda alterations,**kwargs: Mutate(
-	lambda obj,x,y: multiAlter(obj,alterations,args=(x,y),**kwargs),self
+Element.extensions['alter']=lambda self: lambda alterations,before=True,**kwargs: Mutate(
+	lambda obj,x,y: multiAlter(obj,alterations,args=(x,y),**kwargs),self,before=before
 )

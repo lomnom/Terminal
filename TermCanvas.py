@@ -280,7 +280,7 @@ def sprint(data,cursor,cnv,inc=(1,0),newline=(0,1),opaque=False):
 		if cursor.y<minCoords[1]:
 			minCoords[1]=cursor.y
 
-	return (maxCoords[1]-minCoords[1]+1,maxCoords[0]-minCoords[0]) # height, width
+	return (maxCoords[1]-minCoords[1]+newline[1],maxCoords[0]-minCoords[0]+newline[0]) # height, width
 
 class Canvas:
 	def __init__(self,rows,cols,filler=" "):
@@ -351,11 +351,14 @@ class Canvas:
 		for row in range(y,y+h):
 			self.matrix[row][x:x+w]=l
 
-	def sprint(self,data,inc=(1,0),opaque=False):
-		return sprint(data,self.cursor,self,inc=inc,opaque=opaque)
+	def sprint(self,data,inc=(1,0),opaque=False,newline=(0,1)):
+		return sprint(data,self.cursor,self,inc=inc,newline=newline,opaque=opaque)
 
-def ssize(data,inc=(1,0)):
-	return sprint(data,fakecursor,None,inc=inc)
+def ssize(data,inc=(1,0),newline=(0,1),opaque=False):
+	return sprint(data,fakecursor,None,inc=inc,newline=newline,opaque=opaque)
+
+import math
+digits=lambda n: int(math.log10(n))+1
 
 class Terminal(Canvas):
 	def __init__(self):

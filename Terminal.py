@@ -14,6 +14,10 @@ cleartoeol="\033[0K" # clear from cursor to end of line
 
 movecursor=lambda row,col: f"\033[{row};{col}H" #rows and cols start at 1
 colcursor=lambda col: f"\033[{col}G"
+rightcursor=lambda col: f"\033[{col}C"
+leftcursor=lambda col: f"\033[{col}D"
+upcursor=lambda col: f"\033[{col}A"
+downcursor=lambda col: f"\033[{col}B"
 
 #foreground
 fred="\033[31m"

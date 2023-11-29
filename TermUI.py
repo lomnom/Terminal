@@ -188,7 +188,7 @@ class MultiContainer(Container): # children have to implement render()
 		return self.insertChild(child,index)
 
 	def insertChild(self,child,index): # (Element, int) -> int (-1 as index appends)
-		if index==-1 or index<=len(self.children):
+		if index==-1 or index>=len(self.children):
 			self.children.append(child)
 			child.adopted(self)
 			return len(self.children)-1

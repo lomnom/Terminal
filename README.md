@@ -1,4 +1,4 @@
-# Terminal, a python library for all terminal-related needs (\*nix only)!
+# Terminal, a loosely swiftui-inspired python library for all TUI-related needs (\*nix only)!
 ## Structure
 
 This library is split into 3 parts:
@@ -15,16 +15,15 @@ This library is split into 3 parts:
 	- ...
 - `TermUI`: An element-based UI library, built upon the other two layers, which has: 
 	- `Root`: the parent element that projects onto the terminal
-	- `Alloc`: a static space allocator for elements
-	- `Text`: text
-	- `Box`: a box
+	- `VStack` & `HStack`: a dynamic space allocator for elements
+	- `Text`: text that supports markdown-like fonts
+	- `Aligner`: a container that aligns elements
 	- and many more elements for convenient and easy UI creation
 - `TermIntr`: A library for interactive elements, for example:
 	- `Button`: a button
-	- `ToggleButton`: a togglable burron
+	- `Textbox`: a textbox
 	- ...
 
-Documentation is not written yet, and will be started on after the End-Of-Year exams.
+As this library is still constantly evolving, I have chosen not to write documentation untill a stable release is created.
 
-For now, you can read the borderline comprehensible code, and try to understand the demo scripts, `CvDemo.py` and `UIDemo.py`
-
+For now, you can read the source code, and study applications made with this library, such as the demo script `UIDemo.py` and the Befunge IDE [Fungelet](https://github.com/lomnom/Fungelet).

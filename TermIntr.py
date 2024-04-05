@@ -400,8 +400,9 @@ class Textbox(IvEl,tui.GenElement):
 			return
 
 		if key=="backspace":
-			self.text=self.text[:self.cursor-1]+self.text[self.cursor:]
-			self.cursor-=1
+			if self.cursor!=0:
+				self.text=self.text[:self.cursor-1]+self.text[self.cursor:]
+				self.cursor-=1
 		elif key=="right":
 			self.cursor+=1
 		elif key=="left":

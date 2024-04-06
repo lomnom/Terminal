@@ -440,6 +440,7 @@ from time import sleep
 import traceback
 DIED=False #if the program died
 NOCTRLC_CANVAS=True #for debug
+crashCallbacks=[]
 def canvasApp(main): 
 	global DIED
 	term.raw()
@@ -461,6 +462,8 @@ def canvasApp(main):
 		    print(th)
 		    traceback.print_stack(sys._current_frames()[th.ident])
 		    print()
+		for callback in crashCallbacks:
+			callback(e,v,t)
 		sys.__excepthook__(e, v, t)
 		print()
 		os._exit(-1)

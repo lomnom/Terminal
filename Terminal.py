@@ -65,12 +65,13 @@ def toMagIndex(val): #magnitude of colour to index
 	return val
 
 def fromMagIndex(mag):
-	return (val*40)+55
+	return (mag*40)+55
 
 def to216Col(r,g,b):
 	return 16+(toMagIndex(r)*36)+(toMagIndex(g)*6)+toMagIndex(b)
 
 def from216Col(col):
+	col-=16
 	return (fromMagIndex(col//36),fromMagIndex((col%36)//6),fromMagIndex(col%6))
 
 def toGreyCol(val):
@@ -95,6 +96,12 @@ def toTermCol(r,g,b,greynessTresh=255): #treshold above which colours become gre
 		return toGreyCol(brightness(r,g,b))
 	else:
 		return to216Col(r,g,b)
+
+def fromTermCol(termcol):
+	if termcol>=231:
+		return fromGreyCol(termcol)
+	else:
+		return from216Col(termcol)
 
 def hexToRgb(hex):
 	return tuple(int(hex[i:i+2], 16) for i in (0, 2, 4))

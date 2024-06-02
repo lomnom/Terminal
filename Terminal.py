@@ -106,6 +106,40 @@ def fromTermCol(termcol):
 def hexToRgb(hex):
 	return tuple(int(hex[i:i+2], 16) for i in (0, 2, 4))
 
+BRAILLECONST=0x2800 #unicode braille constant
+
+#Canonical mapping:
+# 1 4
+# 2 5
+# 3 6
+# 7 8
+
+#Used mapping:
+# 0 1
+# 2 3
+# 4 5
+# 6 7
+
+#index used mapping to canonical mapping const
+mapping=(0b00000001,0b00001000,0b00000010,0b00010000,0b00000100,0b00100000,0b01000000,0b10000000)
+
+def toCharacter(braille):
+	return chr(braille+BRAILLECONST)
+
+def readPixel(braille,n):
+	return bool(braille & mapping[n])
+
+def addPixel(braille,n):
+	return braille | mapping[n]
+
+def delPixel(braille,n):
+	return braille & (~mapping[n])
+
+# eg.
+# braille=0
+# braille=addPixel(braille,n)
+# fprint(toCharacter(braille))
+
 reset="\033[0m" # resets all color and font effects
 
 bold="\033[1m"

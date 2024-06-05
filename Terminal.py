@@ -126,6 +126,9 @@ mapping=(0b00000001,0b00001000,0b00000010,0b00010000,0b00000100,0b00100000,0b010
 def toCharacter(braille):
 	return chr(braille+BRAILLECONST)
 
+def fromCharacter(braille):
+	return ord(braille)-BRAILLECONST
+
 def readPixel(braille,n):
 	return bool(braille & mapping[n])
 
@@ -139,6 +142,7 @@ def delPixel(braille,n):
 # braille=0
 # braille=addPixel(braille,n)
 # fprint(toCharacter(braille))
+# remember that braille is just bitflags so bitwise tricks will work.
 
 reset="\033[0m" # resets all color and font effects
 
